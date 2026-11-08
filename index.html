@@ -2531,15 +2531,22 @@
     }
 
     /**
-     * 图片转换为 Base64 辅助工具 (支持网络图片、跨域降级与优雅 Canvas 绘制)
+     * 图片转换为 Base64 辅助工具 (无损原图导出，不做压缩降级处理)
      */
     async function getImageBase64(url, sku) {
       if (!url) return createPlaceholderImageBase64(sku);
+      // 若本身已是 Base64 (如本地上传的原图)，直接返回原始数据，绝不做任何压缩降级
       if (url.startsWith('data:image')) return url;
 
-      // 方案1：Fetch 跨域抓取
+      let fetchUrl = url;
+      // 若为带有压缩/缩略图尺寸参数的网络图片 (如 ?w=100&q=80)，自动替换为原始高清版本进行下载
+      if (fetchUrl.includes('unsplash.com')) {
+        fetchUrl = fetchUrl.replace(/w=\d+/, 'w=1600').replace(/q=\d+/, 'q=100');
+      }
+
+      // 方案1：Fetch 原始二进制流 (保留 100% 原图画质与原始体积，不做任何压缩)
       try {
-        const res = await fetch(url, { mode: 'cors' });
+        const res = await fetch(fetchUrl, { mode: 'cors' });
         if (res.ok) {
           const blob = await res.blob();
           return await new Promise((resolve) => {
@@ -2551,7 +2558,7 @@
         }
       } catch (e) {}
 
-      // 方案2：Image + Canvas 跨域提取
+      // 方案2：Image + Canvas 读取，严格保持原始分辨率 (naturalWidth/naturalHeight)，不缩小尺寸、无损输出
       try {
         const b64 = await new Promise((resolve, reject) => {
           const img = new Image();
@@ -2559,52 +2566,58 @@
           img.onload = () => {
             try {
               const canvas = document.createElement('canvas');
-              canvas.width = 90;
-              canvas.height = 90;
+              // 采用图片真实原始物理像素，绝不缩放至90x90
+              const w = img.naturalWidth || img.width || 600;
+              const h = img.naturalHeight || img.height || 600;
+              canvas.width = w;
+              canvas.height = h;
               const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0, 90, 90);
-              resolve(canvas.toDataURL('image/png'));
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              ctx.drawImage(img, 0, 0, w, h);
+              // 输出无损 PNG 格式 (quality: 1.0)
+              resolve(canvas.toDataURL('image/png', 1.0));
             } catch (err) {
               reject(err);
             }
           };
           img.onerror = reject;
-          img.src = url;
+          img.src = fetchUrl;
         });
         if (b64) return b64;
       } catch (e) {}
 
-      // 方案3：绘制高质感商品图样 Base64
+      // 方案3：绘制高清晰度商品图样
       return createPlaceholderImageBase64(sku);
     }
 
     function createPlaceholderImageBase64(sku) {
       const canvas = document.createElement('canvas');
-      canvas.width = 100;
-      canvas.height = 100;
+      canvas.width = 300;
+      canvas.height = 300;
       const ctx = canvas.getContext('2d');
-      const grad = ctx.createLinearGradient(0, 0, 100, 100);
+      const grad = ctx.createLinearGradient(0, 0, 300, 300);
       grad.addColorStop(0, '#f0f9ff');
       grad.addColorStop(1, '#e0f2fe');
       ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 100, 100);
+      ctx.fillRect(0, 0, 300, 300);
 
       ctx.strokeStyle = '#0284c7';
-      ctx.lineWidth = 3;
-      ctx.strokeRect(2, 2, 96, 96);
+      ctx.lineWidth = 4;
+      ctx.strokeRect(4, 4, 292, 292);
 
       ctx.fillStyle = '#0369a1';
-      ctx.font = 'bold 12px sans-serif';
+      ctx.font = 'bold 26px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('商品图样', 50, 36);
+      ctx.fillText('商品实物图样', 150, 110);
 
-      ctx.font = 'bold 10px monospace';
+      ctx.font = 'bold 20px monospace';
       ctx.fillStyle = '#0f172a';
-      const label = sku ? (sku.length > 10 ? sku.slice(0, 10) : sku) : 'SKU';
-      ctx.fillText(label, 50, 64);
+      const label = sku || 'SKU';
+      ctx.fillText(label, 150, 190);
 
-      return canvas.toDataURL('image/png');
+      return canvas.toDataURL('image/png', 1.0);
     }
 
     /**
@@ -2613,7 +2626,7 @@
      */
     async function exportCurrentReport() {
       try {
-        triggerToast('正在生成含内嵌真实图片的 Excel 工作簿，请稍候...');
+        triggerToast('正在生成含无压缩高清原图的 Excel 工作簿，请稍候...');
 
         // 若 ExcelJS 加载受阻，则使用备用 SheetJS 导出
         if (typeof ExcelJS === 'undefined') {
@@ -2829,25 +2842,32 @@
           r.eachCell(cell => {
             cell.alignment = { vertical: 'middle', horizontal: 'center' };
             cell.border = {
-              top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-              bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-              left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-              right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+              top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
             };
           });
 
-          // 内嵌实际图片对象 (Col B: index 1)
+          // 内嵌实际图片对象 (Col B: index 1，保持原图品质)
           const b64 = base64List[i];
           if (b64) {
             try {
-              const isJpeg = b64.includes('image/jpeg') || b64.includes('image/jpg');
+              let ext = 'png';
+              if (b64.startsWith('data:image/jpeg') || b64.startsWith('data:image/jpg')) {
+                ext = 'jpeg';
+              } else if (b64.startsWith('data:image/webp')) {
+                ext = 'webp';
+              } else if (b64.startsWith('data:image/gif')) {
+                ext = 'gif';
+              }
               const imageId = workbook.addImage({
                 base64: b64,
-                extension: isJpeg ? 'jpeg' : 'png'
+                extension: ext
               });
               ws3.addImage(imageId, {
                 tl: { col: 1.15, row: rowNum - 1 + 0.1 },
-                ext: { width: 40, height: 40 },
+                ext: { width: 42, height: 42 },
                 editAs: 'oneCell'
               });
             } catch (imgErr) {
@@ -2867,7 +2887,7 @@
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
 
-        triggerToast(`导出成功！已将 ${filteredSKUs.length} 款货号明细及内嵌真实图片写入 Excel 文件`);
+        triggerToast(`导出成功！已将 ${filteredSKUs.length} 款货号明细及无压缩原图写入 Excel 文件`);
       } catch (err) {
         console.error('Excel export error:', err);
         triggerToast('导出失败，请检查浏览器控制台');

@@ -761,6 +761,62 @@
         </div>
       </div>
     </section>
+
+    <!-- 6.2 货号尾货大图橱窗追踪模式 (新增大图模式卡片看板) -->
+    <section class="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden flex flex-col p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-3.5 pb-2.5 border-b border-slate-200 text-xs">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-4 bg-sky-600 rounded-xs"></span>
+          <h3 class="font-bold text-slate-900 text-xs tracking-tight flex items-center gap-1.5">
+            <i class="fa-solid fa-grip text-sky-600"></i>
+            <span>货号尾货大图橱窗追踪模式</span>
+          </h3>
+          <span id="cardRecordCount" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-mono">共 0 款</span>
+          <span class="text-slate-400 text-[11px] ml-1">
+            * 点击卡片货号查看周度动销折线图，底部可调出分仓尺码分布
+          </span>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <!-- 每页条数 -->
+          <div class="flex items-center gap-1.5">
+            <span class="text-slate-500">每页卡片:</span>
+            <select id="cardPageSizeSelect" onchange="handleCardPageSizeChange(this.value)" class="bg-white border border-slate-300 rounded px-2 py-1 text-slate-700 text-xs">
+              <option value="12" selected>12 卡片/页</option>
+              <option value="24">24 卡片/页</option>
+              <option value="48">48 卡片/页</option>
+            </select>
+          </div>
+
+          <!-- 排序依据 -->
+          <div class="flex items-center gap-1.5">
+            <span class="text-slate-500">排序依据:</span>
+            <select id="cardSortSelect" onchange="handleCardSortChange()" class="bg-white border border-slate-300 rounded px-2 py-1 text-slate-700 text-xs">
+              <option value="stock_desc">当前总库存 (从高到低) ↓</option>
+              <option value="stock_asc">当前总库存 (从低到高) ↑</option>
+              <option value="sales7_desc">近7天销量 (从高到低) ↓</option>
+              <option value="diff7_desc">7天环比增量 (从高到低) ↓</option>
+              <option value="sales30_desc">近30天销量 (从高到低) ↓</option>
+              <option value="diff30_desc">30天环比增量 (从高到低) ↓</option>
+              <option value="weeks_desc">预估出清周数 (从危到安) ↓</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 卡片网格容器 -->
+      <div id="skuCardGridContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-4">
+        <!-- 动态渲染大图橱窗卡片 -->
+      </div>
+
+      <!-- 卡片专属分页控制栏 -->
+      <div class="mt-4 pt-3 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+        <div id="cardPaginationInfo">显示第 1 至 12 款</div>
+        <div class="flex items-center gap-1" id="cardPaginationBtns">
+          <!-- 动态分页按钮 -->
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- 6.1 商品大图点击放大弹窗 (Image Preview Lightbox) -->
@@ -844,10 +900,128 @@
         </div>
       </div>
 
-      <!-- 弹窗底部操作条 -->
+      <!-- 弹窗底部操作条：新增跳转至查看周销趋势和店铺销量 -->
       <div class="px-4 py-2.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
-        <span id="modalSummaryInfo">共计仓库存货量: 0 件</span>
+        <div class="flex items-center gap-3">
+          <span id="modalSummaryInfo">共计仓库存货量: 0 件</span>
+          <button onclick="openSkuTrendFromModal()" class="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded font-medium transition flex items-center gap-1.5 shadow-2xs">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>查看周销趋势和店铺销量</span>
+          </button>
+        </div>
         <button onclick="closeSkuModal()" class="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded font-medium transition">
+          关闭
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 7.1 单款按周统计销量折线面积图弹窗 (点击卡片货号弹出，带数据标签) -->
+  <div id="skuTrendModalBackdrop" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div id="skuTrendModal" class="bg-white rounded-xl shadow-2xl max-w-6xl xl:max-w-7xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- 弹窗顶栏 -->
+      <div class="p-4 border-b border-slate-200 bg-white flex items-center justify-between">
+        <div class="flex items-center gap-3.5">
+          <img id="modalTrendSkuImage" src="" alt="商品图片" onclick="openImagePreview(this.src, currentTrendSku)" title="点击放大查看高清图" class="w-14 h-14 rounded-lg object-cover border border-slate-200 shadow-2xs bg-white shrink-0 cursor-zoom-in hover:scale-125 transition-transform duration-200" onerror="this.src='https://placehold.co/120x120/f1f5f9/94a3b8?text=SKU'">
+          <div>
+            <div class="flex items-center gap-2.5">
+              <h2 class="text-lg font-bold text-slate-900 tracking-tight font-mono" id="modalTrendSkuCode">SKU-CODE</h2>
+              <span class="text-[11px] px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 font-sans font-medium flex items-center gap-1">
+                <i class="fa-solid fa-chart-line text-sky-500"></i> 周度动销走势
+              </span>
+            </div>
+            <div class="flex flex-wrap items-center gap-3 mt-1 text-[11px] text-slate-500">
+              <span id="modalTrendSkuMetaText" class="font-medium"></span>
+            </div>
+          </div>
+        </div>
+        <button onclick="closeSkuTrendModal()" class="w-8 h-8 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 transition">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <!-- 弹窗主体内容：KPI横条 + ECharts折线面积图 + 店铺动销明细表 -->
+      <div class="flex-1 overflow-auto p-4 bg-slate-50/50 space-y-4">
+        <!-- KPI 摘要 -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs text-center font-mono">
+            <span class="text-[10px] text-slate-400 block font-sans">当前总库存</span>
+            <span class="text-base font-bold text-slate-900" id="trendKpiStock">0</span>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs text-center font-mono">
+            <span class="text-[10px] text-slate-400 block font-sans">近7天销量 (环比)</span>
+            <span class="text-base font-bold text-sky-700" id="trendKpiSales7">0</span>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs text-center font-mono">
+            <span class="text-[10px] text-slate-400 block font-sans">近30天销量 (环比)</span>
+            <span class="text-base font-bold text-indigo-700" id="trendKpiSales30">0</span>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs text-center font-mono">
+            <span class="text-[10px] text-slate-400 block font-sans">预估出清周数</span>
+            <span class="text-base font-bold text-emerald-700" id="trendKpiWeeks">0 周</span>
+          </div>
+        </div>
+
+        <!-- ECharts 折线面积图容器 (支持渠道筛选，标题带渠道名称) -->
+        <div class="bg-white border border-slate-200 rounded-lg p-3.5 shadow-2xs">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <div class="flex items-center gap-2">
+              <span class="w-1.5 h-3.5 bg-sky-600 rounded-xs"></span>
+              <h3 class="text-xs font-bold text-slate-900 flex items-center flex-wrap" id="modalTrendChartTitleText">
+                按周统计销量走势 (折线面积图 · 带数据标签)
+              </h3>
+            </div>
+            <div class="flex items-center gap-2.5">
+              <!-- 周期范围快捷切换 (支持全部周期/近12周/近8周/近4周自由切换) -->
+              <div class="inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-medium" id="trendCycleButtonGroup">
+                <!-- 动态填充 -->
+              </div>
+              <button id="trendChannelFilterResetBtn" onclick="selectTrendChannel('ALL')" class="hidden px-2 py-0.5 rounded bg-sky-100 hover:bg-sky-200 text-sky-800 text-[11px] font-medium border border-sky-300 transition flex items-center gap-1">
+                <i class="fa-solid fa-rotate-left text-[10px]"></i>
+                <span>重置为全渠道</span>
+              </button>
+              <span class="text-[11px] text-slate-400 font-mono">以周一为起点对齐</span>
+            </div>
+          </div>
+          <div id="modalSkuTrendChart" class="w-full h-64"></div>
+        </div>
+
+        <!-- 不同店铺归类动销明细表格 (支持自定义排序、点击行筛选图表、过滤0销量渠道) -->
+        <div class="bg-white border border-slate-200 rounded-lg p-3.5 shadow-2xs">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <div class="flex items-center gap-2">
+              <span class="w-1.5 h-3.5 bg-emerald-600 rounded-xs"></span>
+              <h3 class="text-xs font-bold text-slate-900">不同店铺归类动销明细 (近7天 / 近30天及环比)</h3>
+            </div>
+            <div class="flex items-center gap-3 text-[11px]">
+              <span class="text-slate-500 font-sans"><i class="fa-regular fa-hand-pointer text-sky-500 mr-1"></i>点击行筛选上方折线图 · 表头可自由排序</span>
+              <span class="text-slate-400 font-mono">(<span class="text-blue-600 font-bold">增长+</span> / <span class="text-red-600 font-bold">下滑-</span> · 已过滤0销量)</span>
+            </div>
+          </div>
+          <div class="border border-slate-200 rounded overflow-x-auto">
+            <table class="w-full text-xs border-collapse whitespace-nowrap text-center">
+              <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 select-none">
+                <tr class="h-8" id="modalTrendTheadRow">
+                  <!-- 动态渲染带排序箭头表头 -->
+                </tr>
+              </thead>
+              <tbody id="modalTrendTableBody" class="divide-y divide-slate-100 font-mono text-slate-700">
+                <!-- 动态数据行 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 弹窗底部操作条：一键快捷打开分仓颜色尺码分布 -->
+      <div class="px-4 py-2.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
+        <button onclick="openSkuModalFromTrend()" class="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded font-medium transition flex items-center gap-1.5 shadow-2xs">
+          <i class="fa-solid fa-boxes-stacked"></i>
+          <span>查看该款分仓颜色尺码分布</span>
+        </button>
+        <button onclick="closeSkuTrendModal()" class="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded font-medium transition">
           关闭
         </button>
       </div>
@@ -944,66 +1118,55 @@
   <!-- 9. 核心业务与报表计算脚本 (完整定义与执行) -->
   <script>
     /**
-     * 0. 浅色科技感登录鉴权系统 (工号: 14599 / 密码: 888888 ; 工号: 10211 / 密码: abc@10211)
+     * 0. 登录鉴权逻辑 (账号: 14599/888888, 10211/abc@10211)
      */
-    const AUTH_USERS = {
+    const VALID_ACCOUNTS = {
       '14599': '888888',
       '10211': 'abc@10211'
     };
 
     function checkLoginStatus() {
       const user = sessionStorage.getItem('logged_user');
-      const loginWrapper = document.getElementById('loginWrapper');
+      const wrapper = document.getElementById('loginWrapper');
       const userSpan = document.getElementById('currentLoggedUser');
-      if (user && AUTH_USERS[user]) {
-        if (loginWrapper) loginWrapper.classList.add('hidden');
+      if (user && VALID_ACCOUNTS[user]) {
+        if (wrapper) wrapper.classList.add('hidden');
         if (userSpan) userSpan.innerText = user;
       } else {
-        if (loginWrapper) loginWrapper.classList.remove('hidden');
+        if (wrapper) wrapper.classList.remove('hidden');
       }
     }
 
     function handleLoginSubmit(e) {
       if (e) e.preventDefault();
-      const u = (document.getElementById('loginUsername').value || '').trim();
-      const p = (document.getElementById('loginPassword').value || '').trim();
+      const u = document.getElementById('loginUsername').value.trim();
+      const p = document.getElementById('loginPassword').value.trim();
       const err = document.getElementById('loginErrorMsg');
-      
-      if (AUTH_USERS[u] && AUTH_USERS[u] === p) {
+
+      if (VALID_ACCOUNTS[u] && VALID_ACCOUNTS[u] === p) {
         sessionStorage.setItem('logged_user', u);
-        if (err) err.classList.add('hidden');
-        const loginWrapper = document.getElementById('loginWrapper');
-        if (loginWrapper) loginWrapper.classList.add('hidden');
-        const userSpan = document.getElementById('currentLoggedUser');
-        if (userSpan) userSpan.innerText = u;
-        triggerToast(`欢迎登录，工号 ${u}`);
+        err.classList.add('hidden');
+        checkLoginStatus();
+        triggerToast(`欢迎登录系统，工号: ${u}`);
       } else {
-        if (err) err.classList.remove('hidden');
+        err.classList.remove('hidden');
       }
     }
 
     function fillTestAccount(u, p) {
-      const uInput = document.getElementById('loginUsername');
-      const pInput = document.getElementById('loginPassword');
-      const err = document.getElementById('loginErrorMsg');
-      if (uInput) uInput.value = u;
-      if (pInput) pInput.value = p;
-      if (err) err.classList.add('hidden');
+      document.getElementById('loginUsername').value = u;
+      document.getElementById('loginPassword').value = p;
+      document.getElementById('loginErrorMsg').classList.add('hidden');
     }
 
     function handleLogout() {
       sessionStorage.removeItem('logged_user');
-      const loginWrapper = document.getElementById('loginWrapper');
-      if (loginWrapper) loginWrapper.classList.remove('hidden');
-      const pInput = document.getElementById('loginPassword');
-      if (pInput) pInput.value = '';
-      const err = document.getElementById('loginErrorMsg');
-      if (err) err.classList.add('hidden');
+      checkLoginStatus();
       triggerToast('已安全退出登录');
     }
 
     /**
-     * 1. 标准库存区间定义 (严格依照最新要求：包含 301-1000件)
+     * 1. 标准库存区间与在仓库龄定义
      */
     const BRACKETS = [
       { key: '1-10', min: 1, max: 10, label: '1-10件' },
@@ -1015,7 +1178,7 @@
     ];
 
     function getBracketKey(qty) {
-      if (!qty || qty <= 0 || isNaN(qty)) return 'NONE'; // 零库存不落入尾货区间
+      if (!qty || qty <= 0 || isNaN(qty)) return 'NONE';
       if (qty <= 10) return '1-10';
       if (qty <= 50) return '11-50';
       if (qty <= 100) return '51-100';
@@ -1024,9 +1187,6 @@
       return '>1000';
     }
 
-    /**
-     * 1.1 日期格式化通用工具：拦截并修复 Excel 序列号 (如 46328 -> 2026-11-02)
-     */
     function formatToDateStr(val) {
       if (val === null || val === undefined || val === '') return '';
       const num = Number(val);
@@ -1046,9 +1206,6 @@
       return str;
     }
 
-    /**
-     * 1.2 将 ISO 周或基准日期转换为具体日期区间标签 (如: 10.26-11.1)
-     */
     function getWeekRangeLabel(weekKey) {
       let startDate, endDate;
       let baseDateStr = weekLatestInvDateMap.get(weekKey);
@@ -1090,9 +1247,6 @@
       return `${startM}.${startD}-${endM}.${endD}`;
     }
 
-    /**
-     * 1.3 ISO 周计算函数：周一为每周第一天
-     */
     function getISOWeekKey(dateStr) {
       if (!dateStr) return 'UNKNOWN';
       const cleanDate = formatToDateStr(dateStr);
@@ -1113,33 +1267,47 @@
       return `${year}-W${String(weekNo).padStart(2, '0')}`;
     }
 
+    function getDistinctAges(prods) {
+      const ageSet = new Set();
+      (prods || RAW_PRODUCTS).forEach(p => {
+        if (p.age) ageSet.add(String(p.age).trim());
+      });
+      const arr = Array.from(ageSet);
+      arr.sort((a, b) => {
+        const numA = parseInt(a, 10) || 0;
+        const numB = parseInt(b, 10) || 0;
+        return numA - numB;
+      });
+      return arr.length > 0 ? arr : ['60天', '90天', '120天', '180天', '240天', '360天'];
+    }
+
     /**
-     * 2. 底层三大数据源基础定义 (商品资料表包含在仓库龄字段)
+     * 2. 底层三大数据源基础定义 (包含在仓库龄)
      */
     const RAW_PRODUCTS = [
-      { sku: 'G23W469136', name: '轻复古拼色运动休闲鞋', img: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=100&q=80', year: '2025', season: '冬季', seasonGroup: '秋冬', category: '鞋履/板鞋/老爹鞋', cost: 125.0, status: '尾货清仓', colorName: '米灰/咖色', age: '240天', isShoe: true },
+      { sku: 'G23W469136', name: '轻复古拼色运动休闲鞋', img: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=100&q=80', year: '2025', season: '冬季', seasonGroup: '秋冬', category: '鞋履/板鞋/老爹鞋', cost: 125.0, status: '尾货清仓', colorName: '米灰/咖色', age: '180天', isShoe: true },
       { sku: 'DX2025-W01', name: '极光中长款白鸭绒羽绒服', img: 'https://images.unsplash.com/photo-1539533018447-63fcce667883?w=100&q=80', year: '2025', season: '冬季', seasonGroup: '秋冬', category: '羽绒服/大衣', cost: 240.0, status: '尾货清仓', colorName: '曜石黑', age: '120天', isShoe: false },
       { sku: 'DX2025-W02', name: '轻薄立领短款羽绒服', img: 'https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=100&q=80', year: '2025', season: '冬季', seasonGroup: '秋冬', category: '羽绒服/大衣', cost: 135.0, status: '尾货清仓', colorName: '月岩灰', age: '90天', isShoe: false },
       { sku: 'DX2025-A03', name: '重磅复古纯棉连帽卫衣', img: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=100&q=80', year: '2025', season: '秋季', seasonGroup: '秋冬', category: '卫衣/长袖T', cost: 68.0, status: '尾货清仓', colorName: '燕麦色', age: '180天', isShoe: false },
-      { sku: 'DX2025-A04', name: '美利奴羊毛圆领针织毛衫', img: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=100&q=80', year: '2025', season: '秋季', seasonGroup: '秋冬', category: '毛衫/针织衫', cost: 89.0, status: '尾货清仓', colorName: '藏青蓝', age: '150天', isShoe: false },
-      { sku: 'DX2024-W05', name: '经典双排扣纯羊毛大衣', img: 'https://images.unsplash.com/photo-1539533113208-f6df8cc8b543?w=100&q=80', year: '2024', season: '冬季', seasonGroup: '秋冬', category: '羽绒服/大衣', cost: 320.0, status: '深度滞销', colorName: '焦糖驼色', age: '420天', isShoe: false },
-      { sku: 'DX2025-S06', name: '工装多口袋户外休闲长裤', img: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=100&q=80', year: '2025', season: '春季', seasonGroup: '春夏', category: '休闲长裤/牛仔裤', cost: 58.0, status: '尾货清仓', colorName: '军绿色', age: '210天', isShoe: false },
-      { sku: 'DX2025-S07', name: '法式碎花雪纺过膝连衣裙', img: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=100&q=80', year: '2025', season: '春季', seasonGroup: '春夏', category: '连衣裙/半裙', cost: 72.0, status: '尾货清仓', colorName: '法式碎花', age: '270天', isShoe: false },
+      { sku: 'DX2025-A04', name: '美利奴羊毛圆领针织毛衫', img: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=100&q=80', year: '2025', season: '秋季', seasonGroup: '秋冬', category: '毛衫/针织衫', cost: 89.0, status: '尾货清仓', colorName: '藏青蓝', age: '240天', isShoe: false },
+      { sku: 'DX2024-W05', name: '经典双排扣纯羊毛大衣', img: 'https://images.unsplash.com/photo-1539533113208-f6df8cc8b543?w=100&q=80', year: '2024', season: '冬季', seasonGroup: '秋冬', category: '羽绒服/大衣', cost: 320.0, status: '深度滞销', colorName: '焦糖驼色', age: '360天', isShoe: false },
+      { sku: 'DX2025-S06', name: '工装多口袋户外休闲长裤', img: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=100&q=80', year: '2025', season: '春季', seasonGroup: '春夏', category: '休闲长裤/牛仔裤', cost: 58.0, status: '尾货清仓', colorName: '军绿色', age: '180天', isShoe: false },
+      { sku: 'DX2025-S07', name: '法式碎花雪纺过膝连衣裙', img: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=100&q=80', year: '2025', season: '春季', seasonGroup: '春夏', category: '连衣裙/半裙', cost: 72.0, status: '尾货清仓', colorName: '法式碎花', age: '120天', isShoe: false },
       { sku: 'DX2024-X08', name: '高克重丝光棉纯色短袖T恤', img: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=100&q=80', year: '2024', season: '夏季', seasonGroup: '春夏', category: '短袖T恤/短裤', cost: 28.0, status: '断码残件', colorName: '本白', age: '480天', isShoe: false },
-      { sku: 'DX2025-A09', name: '抗皱商务免烫长袖衬衫', img: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=100&q=80', year: '2025', season: '秋季', seasonGroup: '秋冬', category: '夹克/外套', cost: 45.0, status: '尾货清仓', colorName: '浅天蓝', age: '180天', isShoe: false },
-      { sku: 'DX2024-A10', name: '复古工装翻领牛仔夹克', img: 'https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=100&q=80', year: '2024', season: '秋季', seasonGroup: '秋冬', category: '夹克/外套', cost: 95.0, status: '深度滞销', colorName: '复古水洗蓝', age: '390天', isShoe: false },
-      { sku: 'DX2025-W11', name: '加厚户外防风鹅绒服', img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&q=80', year: '2025', season: '冬季', seasonGroup: '秋冬', category: '羽绒服/大衣', cost: 380.0, status: '尾货清仓', colorName: '极夜黑', age: '120天', isShoe: false },
-      { sku: 'DX2025-S12', name: '垂感西装直筒阔腿裤', img: 'https://images.unsplash.com/photo-1509551388413-e18d0ac5d495?w=100&q=80', year: '2025', season: '春季', seasonGroup: '春夏', category: '休闲长裤/牛仔裤', cost: 52.0, status: '尾货清仓', colorName: '碳灰', age: '240天', isShoe: false },
-      { sku: 'DX2024-S13', name: '法式复古赫本风小黑裙', img: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=100&q=80', year: '2024', season: '春季', seasonGroup: '春夏', category: '连衣裙/半裙', cost: 85.0, status: '断码残件', colorName: '赫本黑', age: '450天', isShoe: false },
-      { sku: 'DX2025-X14', name: '快干透气网孔速干短T', img: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=100&q=80', year: '2025', season: '夏季', seasonGroup: '春夏', category: '短袖T恤/短裤', cost: 22.0, status: '尾货清仓', colorName: '荧光青', age: '300天', isShoe: false },
-      { sku: 'DX2024-W15', name: '粗针绞花高领加厚毛衣', img: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=100&q=80', year: '2024', season: '冬季', seasonGroup: '秋冬', category: '毛衫/针织衫', cost: 78.0, status: '断码残件', colorName: '米白', age: '540天', isShoe: false },
+      { sku: 'DX2025-A09', name: '抗皱商务免烫长袖衬衫', img: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=100&q=80', year: '2025', season: '秋季', seasonGroup: '秋冬', category: '夹克/外套', cost: 45.0, status: '尾货清仓', colorName: '浅天蓝', age: '60天', isShoe: false },
+      { sku: 'DX2024-A10', name: '复古工装翻领牛仔夹克', img: 'https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=100&q=80', year: '2024', season: '秋季', seasonGroup: '秋冬', category: '夹克/外套', cost: 95.0, status: '深度滞销', colorName: '复古水洗蓝', age: '360天', isShoe: false },
+      { sku: 'DX2025-W11', name: '加厚户外防风鹅绒服', img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&q=80', year: '2025', season: '冬季', seasonGroup: '秋冬', category: '羽绒服/大衣', cost: 380.0, status: '尾货清仓', colorName: '极夜黑', age: '90天', isShoe: false },
+      { sku: 'DX2025-S12', name: '垂感西装直筒阔腿裤', img: 'https://images.unsplash.com/photo-1509551388413-e18d0ac5d495?w=100&q=80', year: '2025', season: '春季', seasonGroup: '春夏', category: '休闲长裤/牛仔裤', cost: 52.0, status: '尾货清仓', colorName: '碳灰', age: '180天', isShoe: false },
+      { sku: 'DX2024-S13', name: '法式复古赫本风小黑裙', img: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=100&q=80', year: '2024', season: '春季', seasonGroup: '春夏', category: '连衣裙/半裙', cost: 85.0, status: '断码残件', colorName: '赫本黑', age: '480天', isShoe: false },
+      { sku: 'DX2025-X14', name: '快干透气网孔速干短T', img: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=100&q=80', year: '2025', season: '夏季', seasonGroup: '春夏', category: '短袖T恤/短裤', cost: 22.0, status: '尾货清仓', colorName: '荧光青', age: '60天', isShoe: false },
+      { sku: 'DX2024-W15', name: '粗针绞花高领加厚毛衣', img: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=100&q=80', year: '2024', season: '冬季', seasonGroup: '秋冬', category: '毛衫/针织衫', cost: 78.0, status: '断码残件', colorName: '米白', age: '360天', isShoe: false },
       { sku: 'DX2026-S16', name: '极简防泼水机能春季夹克', img: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=100&q=80', year: '2026', season: '春季', seasonGroup: '春夏', category: '夹克/外套', cost: 110.0, status: '尾货清仓', colorName: '卡其灰', age: '60天', isShoe: false },
-      { sku: 'DX2025-A17', name: '直筒弹力经典水洗牛仔裤', img: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=100&q=80', year: '2025', season: '秋季', seasonGroup: '秋冬', category: '休闲长裤/牛仔裤', cost: 62.0, status: '尾货清仓', colorName: '深蓝', age: '180天', isShoe: false },
+      { sku: 'DX2025-A17', name: '直筒弹力经典水洗牛仔裤', img: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=100&q=80', year: '2025', season: '秋季', seasonGroup: '秋冬', category: '休闲长裤/牛仔裤', cost: 62.0, status: '尾货清仓', colorName: '深蓝', age: '240天', isShoe: false },
       { sku: 'DX2024-X18', name: '亚麻透气宽松休闲短裤', img: 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=100&q=80', year: '2024', season: '夏季', seasonGroup: '春夏', category: '短袖T恤/短裤', cost: 36.0, status: '断码残件', colorName: '原麻灰', age: '480天', isShoe: false },
-      { sku: 'DX2025-K19', name: '复古厚底老爹鞋/慢跑鞋', img: 'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=100&q=80', year: '2025', season: '春季', seasonGroup: '春夏', category: '鞋履/板鞋/老爹鞋', cost: 115.0, status: '尾货清仓', colorName: '复古米白', age: '210天', isShoe: true },
-      { sku: 'DX2025-K20', name: '经典低帮百搭情侣板鞋', img: 'https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=100&q=80', year: '2025', season: '秋季', seasonGroup: '秋冬', category: '鞋履/板鞋/老爹鞋', cost: 98.0, status: '尾货清仓', colorName: '黑白配', age: '150天', isShoe: true },
+      { sku: 'DX2025-K19', name: '复古厚底老爹鞋/慢跑鞋', img: 'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=100&q=80', year: '2025', season: '春季', seasonGroup: '春夏', category: '鞋履/板鞋/老爹鞋', cost: 115.0, status: '尾货清仓', colorName: '复古米白', age: '180天', isShoe: true },
+      { sku: 'DX2025-K20', name: '经典低帮百搭情侣板鞋', img: 'https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=100&q=80', year: '2025', season: '秋季', seasonGroup: '秋冬', category: '鞋履/板鞋/老爹鞋', cost: 98.0, status: '尾货清仓', colorName: '黑白配', age: '120天', isShoe: true },
       { sku: 'DX2024-K21', name: '复古德训鞋休闲鞋', img: 'https://images.unsplash.com/photo-1548883354-7622d03aca27?w=100&q=80', year: '2024', season: '夏季', seasonGroup: '春夏', category: '鞋履/板鞋/老爹鞋', cost: 85.0, status: '深度滞销', colorName: '灰白德训', age: '360天', isShoe: true },
-      { sku: 'DX2025-W22', name: '中长款加厚羊羔绒防寒外套', img: 'https://images.unsplash.com/photo-1539533018447-63fcce667883?w=100&q=80', year: '2025', season: '冬季', seasonGroup: '秋冬', category: '羽绒服/大衣', cost: 175.0, status: '尾货清仓', colorName: '奶咖色', age: '90天', isShoe: false }
+      { sku: 'DX2025-W22', name: '中长款加厚羊羔绒防寒外套', img: 'https://images.unsplash.com/photo-1539533018447-63fcce667883?w=100&q=80', year: '2025', season: '冬季', seasonGroup: '秋冬', category: '羽绒服/大衣', cost: 175.0, status: '尾货清仓', colorName: '奶咖色', age: '240天', isShoe: false }
     ];
 
     const WAREHOUSES = ['中邮发货仓', '华东总仓', '华南成品仓', '华北周转仓', '奥莱特卖中转仓'];
@@ -1153,6 +1321,7 @@
     let filteredSKUs = [];
 
     let latestInventoryDate = '';
+    let allWeekKeys = []; // 全量业务周
     let recent4WeekKeys = [];
     let weekLatestInvDateMap = new Map();
 
@@ -1171,33 +1340,26 @@
 
     let currentDetailPage = 1;
     let detailPageSize = 10;
+    let currentCardPage = 1;
+    let cardPageSize = 12;
+    let cardSortType = 'stock_desc';
+
     let chartBracketInst = null;
     let chartAgeInst = null;
     let currentTable3Metric = 'count';
 
     /**
-     * 辅助工具：提取唯一的在仓库龄列表 (自然升序)
-     */
-    function getDistinctAges(skus) {
-      const source = (skus && skus.length > 0) ? skus : RAW_PRODUCTS;
-      const ageList = [...new Set(source.map(p => String(p.age || '')).filter(Boolean))];
-      ageList.sort((a, b) => {
-        const numA = parseInt(a, 10);
-        const numB = parseInt(b, 10);
-        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-        return a.localeCompare(b, 'zh-CN');
-      });
-      return ageList.length > 0 ? ageList : ['180天'];
-    }
-
-    /**
-     * 3. 模拟构建符合三大表结构的真实数据
+     * 3. 模拟构建符合三大表结构的真实数据 (扩充为多周连续历史流水)
      */
     function initDatabase() {
       inventoryDB = [];
       salesDB = [];
 
-      const snapshotDates = ['2026-10-12', '2026-10-19', '2026-10-26', '2026-11-02'];
+      // 连续 8 周的周一快照日期
+      const snapshotDates = [
+        '2026-09-14', '2026-09-21', '2026-09-28', '2026-10-05',
+        '2026-10-12', '2026-10-19', '2026-10-26', '2026-11-02'
+      ];
       latestInventoryDate = '2026-11-02';
 
       const initialStocks = [
@@ -1209,7 +1371,7 @@
         const sizes = prod.isShoe ? SHOE_SIZES : CLOTH_SIZES;
         
         snapshotDates.forEach((sDate, dIdx) => {
-          const weekFactor = 1 + (3 - dIdx) * 0.12;
+          const weekFactor = 1 + (snapshotDates.length - 1 - dIdx) * 0.08;
           const totalQtyThisDate = Math.round(latestQty * weekFactor);
 
           if (prod.sku === 'G23W469136' && sDate === '2026-11-02') {
@@ -1261,7 +1423,7 @@
           baseD.setDate(baseD.getDate() + 2);
           const saleDateStr = baseD.toISOString().slice(0, 10);
 
-          const factor = (wkIdx === 3) ? 1.2 : (wkIdx === 2 ? 1.05 : 0.9);
+          const factor = (wkIdx === snapshotDates.length - 1) ? 1.25 : (wkIdx >= snapshotDates.length - 3 ? 1.05 : 0.85);
           const weeklySales = Math.round(baseWeeklySales * factor);
 
           CHANNELS.forEach((channel, cIdx) => {
@@ -1284,21 +1446,14 @@
     }
 
     /**
-     * 3.1 基于实际数据源动态提取选项，构建复选框切片
+     * 3.1 动态构建多选切片组件
      */
     function buildDynamicFilterSlicers() {
       const uniqueSeasons = [...new Set(RAW_PRODUCTS.map(p => p.seasonGroup || p.season).filter(Boolean))].sort();
       const uniqueCategories = [...new Set(RAW_PRODUCTS.map(p => p.category).filter(Boolean))].sort();
       const uniqueYears = [...new Set(RAW_PRODUCTS.map(p => String(p.year || '')).filter(Boolean))].sort().reverse();
       const uniqueWarehouses = [...new Set(inventoryDB.map(i => i.warehouse).filter(Boolean))].sort();
-      
-      // 动态提取在仓库龄并按数值天数自然升序排序
-      const uniqueAges = [...new Set(RAW_PRODUCTS.map(p => String(p.age || '')).filter(Boolean))].sort((a, b) => {
-        const numA = parseInt(a, 10);
-        const numB = parseInt(b, 10);
-        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-        return a.localeCompare(b, 'zh-CN');
-      });
+      const uniqueAges = getDistinctAges(RAW_PRODUCTS);
 
       const config = [
         { key: 'seasonGroup', label: '季节', options: uniqueSeasons.map(v => ({ val: v, text: v })) },
@@ -1306,7 +1461,7 @@
         { key: 'year', label: '年份', options: uniqueYears.map(v => ({ val: v, text: v })) },
         { key: 'warehouse', label: '仓库', options: uniqueWarehouses.map(v => ({ val: v, text: v })) },
         { key: 'bracket', label: '库存区间', options: BRACKETS.map(b => ({ val: b.key, text: b.label })) },
-        { key: 'age', label: '在仓库龄', options: uniqueAges.map(v => ({ val: v, text: v })) }
+        { key: 'age', label: '库龄', options: uniqueAges.map(v => ({ val: v, text: v })) }
       ];
 
       config.forEach(item => {
@@ -1399,7 +1554,7 @@
     }
 
     /**
-     * 4. 超高性能交叉聚合引擎
+     * 4. 交叉聚合引擎
      */
     function aggregateAllData() {
       const t0 = performance.now();
@@ -1435,15 +1590,24 @@
       });
 
       const sortedWeeks = Array.from(weekSet).sort();
+      allWeekKeys = [...sortedWeeks]; // 包含全量业务周，不受4周限制
       recent4WeekKeys = sortedWeeks.slice(-4);
       if (recent4WeekKeys.length === 0) {
         recent4WeekKeys = ['2026-W42', '2026-W43', '2026-W44', '2026-W45'];
+        allWeekKeys = [...recent4WeekKeys];
       }
 
       const cycleDescRanges = recent4WeekKeys.map(k => getWeekRangeLabel(k)).join('、');
       document.getElementById('table2CycleDesc').innerHTML = `<i class="fa-regular fa-calendar-days text-emerald-600 mr-1"></i>统计周期: 最近4周滚动追踪 (${cycleDescRanges})`;
+      const cycleDescEl = document.getElementById('table2AgeCycleDesc');
+      if (cycleDescEl) {
+        cycleDescEl.innerHTML = `<i class="fa-regular fa-calendar-days text-teal-600 mr-1"></i>统计周期: 最近4周滚动追踪 (${cycleDescRanges})`;
+      }
+
       const latestRange = getWeekRangeLabel(recent4WeekKeys[recent4WeekKeys.length - 1]);
       document.getElementById('chartLatestPeriodTag').innerText = `最新周: ${latestRange}`;
+      const tagAgeEl = document.getElementById('chartAgeLatestPeriodTag');
+      if (tagAgeEl) tagAgeEl.innerText = `最新周: ${latestRange}`;
 
       const latestInvMap = new Map();
       const skuWeekStockMap = new Map();
@@ -1483,8 +1647,9 @@
         const bracketKey = getBracketKey(currentStock);
         const bracketObj = BRACKETS.find(b => b.key === bracketKey);
 
+        // 汇聚全部周期的动销指标
         const weeklyMetrics = {};
-        recent4WeekKeys.forEach(wk => {
+        allWeekKeys.forEach(wk => {
           const wSales = salesDB.filter(s => s.sku === prod.sku && getISOWeekKey(formatToDateStr(s.date)) === wk)
                                 .reduce((sum, s) => sum + s.salesQty, 0);
           weeklyMetrics[wk] = {
@@ -1520,6 +1685,21 @@
           ? salesDB.filter(s => s.sku === prod.sku && getISOWeekKey(formatToDateStr(s.date)) === prevWkKey).reduce((sum, s) => sum + s.salesQty, 0)
           : 0;
         const diff7d = salesLast7d - prevSales7d;
+
+        let salesLast30d = 0;
+        recent4WeekKeys.forEach(wk => {
+          salesLast30d += (weeklyMetrics[wk]?.sales || 0);
+        });
+
+        let diff30d = 0;
+        if (recent4WeekKeys.length >= 4) {
+          const sumLater2w = (weeklyMetrics[recent4WeekKeys[3]]?.sales || 0) + (weeklyMetrics[recent4WeekKeys[2]]?.sales || 0);
+          const sumEarlier2w = (weeklyMetrics[recent4WeekKeys[1]]?.sales || 0) + (weeklyMetrics[recent4WeekKeys[0]]?.sales || 0);
+          diff30d = sumLater2w - sumEarlier2w;
+        } else {
+          diff30d = Math.round(diff7d * 3.2);
+        }
+
         const weeksToClear = salesLast7d > 0 ? Math.round(currentStock / salesLast7d) : 99;
 
         return {
@@ -1534,6 +1714,8 @@
           weeklyMetrics,
           salesLast7d,
           diff7d,
+          salesLast30d,
+          diff30d,
           weeksToClear
         };
       });
@@ -1559,7 +1741,7 @@
         if (activeFilters.category.size > 0 && !activeFilters.category.has(item.category)) return false;
         if (activeFilters.year.size > 0 && !activeFilters.year.has(String(item.year))) return false;
         if (activeFilters.bracket.size > 0 && !activeFilters.bracket.has(item.bracketKey)) return false;
-        if (activeFilters.age && activeFilters.age.size > 0 && !activeFilters.age.has(String(item.age))) return false;
+        if (activeFilters.age.size > 0 && !activeFilters.age.has(String(item.age || '180天'))) return false;
 
         if (activeFilters.warehouse.size > 0) {
           const hasInSelectedWh = item.skuInv.some(i => activeFilters.warehouse.has(i.warehouse) && i.stockQty > 0);
@@ -1585,7 +1767,7 @@
           if (selectedMatrixAgeCell.seasonGroup !== 'ALL' && item.seasonGroup !== selectedMatrixAgeCell.seasonGroup) {
             return false;
           }
-          if (selectedMatrixAgeCell.age !== 'ALL' && String(item.age) !== selectedMatrixAgeCell.age) {
+          if (selectedMatrixAgeCell.age !== 'ALL' && String(item.age || '180天') !== selectedMatrixAgeCell.age) {
             return false;
           }
         }
@@ -1594,6 +1776,7 @@
       });
 
       currentDetailPage = 1;
+      currentCardPage = 1;
       updateKPIStrip();
       renderMatrixTable1();
       renderMatrixTable1Age();
@@ -1603,6 +1786,7 @@
       renderMatrixTable4();
       renderMatrixTable4Age();
       renderSkuDetailTable();
+      renderSkuCardGrid();
       renderBracketChart();
       renderAgeChart();
     }
@@ -1655,10 +1839,10 @@
       selectedMatrixCell = null;
       const tag = document.getElementById('activeMatrixFilterTag');
       const descEl = document.getElementById('activeFilterDesc');
-      descEl.innerText = `库龄矩阵穿透: ${desc}`;
+      descEl.innerText = `库龄穿透: ${desc}`;
       tag.classList.remove('hidden');
       applyFilters();
-      triggerToast(`已联动过滤：${desc}`);
+      triggerToast(`已联动过滤库龄：${desc}`);
     }
 
     /**
@@ -1771,20 +1955,19 @@
     }
 
     /**
-     * 7.1 渲染表1-库龄版：统计不同季节，不同在仓库龄的款数数量
+     * 7.1 渲染表1附：统计不同季节，不同在仓库龄的款数数量
      */
     function renderMatrixTable1Age() {
       const thead = document.getElementById('matrixTable1AgeHead');
       const tbody = document.getElementById('matrixTable1AgeBody');
       if (!thead || !tbody) return;
 
+      const ages = getDistinctAges(RAW_PRODUCTS);
       const seasons = ['春夏', '秋冬'];
-      const distinctAges = getDistinctAges(RAW_PRODUCTS);
 
-      // 构建表头
       let headHtml = `<tr class="h-9"><th class="w-20 px-2">季节</th>`;
-      distinctAges.forEach(age => {
-        headHtml += `<th class="px-2">${age}</th>`;
+      ages.forEach(a => {
+        headHtml += `<th class="px-2 font-semibold text-slate-700">${a}</th>`;
       });
       headHtml += `<th class="px-2 font-bold bg-slate-100">总计</th></tr>`;
       thead.innerHTML = headHtml;
@@ -1792,12 +1975,12 @@
       const matrix = {};
       seasons.forEach(s => {
         matrix[s] = {};
-        distinctAges.forEach(a => matrix[s][a] = 0);
+        ages.forEach(a => matrix[s][a] = 0);
         matrix[s]['total'] = 0;
       });
 
       const colTotals = {};
-      distinctAges.forEach(a => colTotals[a] = 0);
+      ages.forEach(a => colTotals[a] = 0);
       let grandTotal = 0;
 
       const baseList = aggregatedSKUs.filter(item => {
@@ -1809,7 +1992,7 @@
 
       baseList.forEach(item => {
         const s = item.seasonGroup;
-        const a = String(item.age || '180天');
+        const a = item.age || '180天';
         if (matrix[s] && matrix[s][a] !== undefined) {
           matrix[s][a]++;
           matrix[s]['total']++;
@@ -1822,8 +2005,8 @@
       seasons.forEach(seasonName => {
         html += `<tr class="h-8">`;
         html += `<td class="font-bold bg-slate-50 text-slate-800 text-left px-3">${seasonName}</td>`;
-
-        distinctAges.forEach(a => {
+        
+        ages.forEach(a => {
           const val = matrix[seasonName][a];
           const isSelected = selectedMatrixAgeCell && selectedMatrixAgeCell.seasonGroup === seasonName && selectedMatrixAgeCell.age === a;
           html += `
@@ -1837,7 +2020,7 @@
         const isRowActive = selectedMatrixAgeCell && selectedMatrixAgeCell.seasonGroup === seasonName && selectedMatrixAgeCell.age === 'ALL';
         html += `
           <td class="font-bold bg-slate-50 cell-clickable px-2 text-slate-900 ${isRowActive ? 'cell-active' : ''}"
-              onclick="onMatrixAgeCellClick('${seasonName}', 'ALL', '${seasonName}全款')">
+              onclick="onMatrixAgeCellClick('${seasonName}', 'ALL', '${seasonName}全库龄')">
             ${matrix[seasonName]['total']}
           </td>
         `;
@@ -1847,7 +2030,7 @@
       const isGrandActive = selectedMatrixAgeCell && selectedMatrixAgeCell.seasonGroup === 'ALL' && selectedMatrixAgeCell.age === 'ALL';
       html += `<tr class="h-8 font-bold bg-slate-100 text-slate-900">`;
       html += `<td class="text-left px-3 font-bold">总计</td>`;
-      distinctAges.forEach(a => {
+      ages.forEach(a => {
         const isColActive = selectedMatrixAgeCell && selectedMatrixAgeCell.seasonGroup === 'ALL' && selectedMatrixAgeCell.age === a;
         html += `
           <td class="cell-clickable px-2 ${isColActive ? 'cell-active' : ''}"
@@ -1865,7 +2048,8 @@
       html += `</tr>`;
 
       tbody.innerHTML = html;
-      document.getElementById('table1AgeSummaryDesc').innerText = `最新盘点日(${latestInventoryDate}) 在库款数: ${grandTotal} 款`;
+      const sumEl = document.getElementById('table1AgeSummaryDesc');
+      if (sumEl) sumEl.innerText = `最新盘点日(${latestInventoryDate}) 在库款数: ${grandTotal} 款`;
     }
 
     /**
@@ -1898,7 +2082,7 @@
     }
 
     /**
-     * 8. 渲染表2：各库存区间最近4周周变化 (复合表头，新增款数环比，数值全居中对齐)
+     * 8.1 渲染表2：各库存区间最近4周周变化
      */
     function renderMatrixTable2() {
       const thead = document.getElementById('matrixTable2Head');
@@ -1975,7 +2159,6 @@
           const borderL = 'border-l-2 ' + (isLatest ? 'border-l-sky-300' : 'border-l-slate-300');
           const cellBg = isLatest ? 'bg-sky-50/40 font-bold text-slate-900' : '';
 
-          // 计算各周款数环比绝对变化
           let diffText = '-';
           let diffCls = 'text-slate-400';
           if (idx > 0) {
@@ -2028,7 +2211,6 @@
         const borderL = 'border-l-2 ' + (isLatest ? 'border-l-sky-400 bg-sky-100/60' : 'border-l-slate-300');
         const textCls = isLatest ? 'text-sky-900' : '';
 
-        // 总计款数环比
         let totDiffText = '-';
         let totDiffCls = 'text-slate-500';
         if (idx > 0) {
@@ -2068,14 +2250,14 @@
     }
 
     /**
-     * 8.0 渲染表2-库龄版：统计不同在仓库龄的库存数量，销量，款数的周变化
+     * 8.2 渲染表2附：各在仓库龄周变化
      */
     function renderMatrixTable2Age() {
       const thead = document.getElementById('matrixTable2AgeHead');
       const tbody = document.getElementById('matrixTable2AgeBody');
       if (!thead || !tbody) return;
 
-      const distinctAges = getDistinctAges(RAW_PRODUCTS);
+      const ages = getDistinctAges(RAW_PRODUCTS);
 
       let headRow1 = `<tr class="h-8"><th rowspan="2" class="w-32 px-3 text-center bg-slate-100 font-bold">在仓库龄</th>`;
       let headRow2 = `<tr class="h-7 text-[11px] text-slate-600">`;
@@ -2105,10 +2287,10 @@
       thead.innerHTML = headRow1 + headRow2;
 
       const stats = {};
-      distinctAges.forEach(age => {
-        stats[age] = { weeks: {} };
+      ages.forEach(a => {
+        stats[a] = { label: a, weeks: {} };
         recent4WeekKeys.forEach(wk => {
-          stats[age].weeks[wk] = { stock: 0, sales: 0, count: 0 };
+          stats[a].weeks[wk] = { stock: 0, sales: 0, count: 0 };
         });
       });
 
@@ -2118,17 +2300,14 @@
       });
 
       filteredSKUs.forEach(item => {
-        const a = String(item.age || '180天');
-        if (!stats[a]) {
-          stats[a] = { weeks: {} };
-          recent4WeekKeys.forEach(wk => stats[a].weeks[wk] = { stock: 0, sales: 0, count: 0 });
-        }
+        const a = item.age || '180天';
         recent4WeekKeys.forEach(wk => {
           const wData = item.weeklyMetrics[wk] || { stock: item.currentStock, sales: 0 };
-          stats[a].weeks[wk].stock += wData.stock;
-          stats[a].weeks[wk].sales += wData.sales;
-          stats[a].weeks[wk].count += (wData.stock > 0 ? 1 : 0);
-
+          if (stats[a]) {
+            stats[a].weeks[wk].stock += wData.stock;
+            stats[a].weeks[wk].sales += wData.sales;
+            stats[a].weeks[wk].count += (wData.stock > 0 ? 1 : 0);
+          }
           if (wData.stock > 0) {
             totalWeeks[wk].stock += wData.stock;
             totalWeeks[wk].sales += wData.sales;
@@ -2140,10 +2319,10 @@
       let bodyHtml = '';
       const latestWk = recent4WeekKeys[recent4WeekKeys.length - 1];
 
-      distinctAges.forEach(age => {
-        const row = stats[age];
+      ages.forEach(a => {
+        const row = stats[a];
         bodyHtml += `<tr class="h-8 hover:bg-slate-50 transition-colors">`;
-        bodyHtml += `<td class="font-bold text-center bg-slate-50 text-slate-800 px-3">${age}</td>`;
+        bodyHtml += `<td class="font-bold text-center bg-slate-50 text-slate-800 px-3">${row.label}</td>`;
 
         recent4WeekKeys.forEach((wk, idx) => {
           const isLatest = (idx === recent4WeekKeys.length - 1);
@@ -2239,12 +2418,10 @@
       </tr>`;
 
       tbody.innerHTML = bodyHtml;
-      const cycleDescRanges = recent4WeekKeys.map(k => getWeekRangeLabel(k)).join('、');
-      document.getElementById('table2AgeCycleDesc').innerHTML = `<i class="fa-regular fa-calendar-days text-teal-600 mr-1"></i>统计周期: 最近4周滚动追踪 (${cycleDescRanges})`;
     }
 
     /**
-     * 8.1 渲染表3：统计不同库存区间，不同商品类目的最新一周数据 (切片器驱动 + 热力图模式)
+     * 8.3 渲染表3：统计不同库存区间，不同商品类目的最新一周数据
      */
     function renderMatrixTable3() {
       const thead = document.getElementById('matrixTable3Head');
@@ -2256,7 +2433,6 @@
 
       const latestWk = recent4WeekKeys[recent4WeekKeys.length - 1];
 
-      // 1. 动态生成干净的单层表头 (各品类占一列，告别拥挤)
       let headHtml = `<tr class="h-8"><th class="w-32 px-3 text-center bg-slate-100 font-bold">库存区间</th>`;
       categories.forEach(cat => {
         headHtml += `<th class="px-3 text-center font-bold bg-amber-50/70 text-amber-950 border-l border-slate-200 whitespace-nowrap">${cat}</th>`;
@@ -2264,7 +2440,6 @@
       headHtml += `<th class="px-3 text-center font-bold bg-slate-100 text-slate-900 border-l-2 border-slate-300">合计</th></tr>`;
       thead.innerHTML = headHtml;
 
-      // 2. 预先计算各区间 × 类目的指标数值与全局非零最大值 (用于热力图渐变色阶归一化)
       const matrixData = {};
       const colTotals = {};
       categories.forEach(cat => colTotals[cat] = 0);
@@ -2289,7 +2464,6 @@
         });
       });
 
-      // 3. 构建数据行，结合热力图模式渲染背景色
       let bodyHtml = '';
       BRACKETS.forEach(b => {
         bodyHtml += `<tr class="h-8 hover:bg-slate-50 transition-colors">`;
@@ -2308,7 +2482,6 @@
           if (val > 0) {
             displayVal = val.toLocaleString();
             const ratio = Math.min(1, Math.max(0.08, val / maxVal));
-            // 暖琥珀色阶热力图渐变
             const alpha = (0.10 + ratio * 0.70).toFixed(2);
             const textColor = ratio > 0.55 ? '#451a03; font-weight: bold;' : '#78350f; font-weight: 600;';
             cellStyle = `style="background-color: rgba(245, 158, 11, ${alpha}); color: ${textColor}"`;
@@ -2330,7 +2503,6 @@
         </tr>`;
       });
 
-      // 4. 总计行
       bodyHtml += `<tr class="h-9 font-bold bg-slate-100 text-slate-900 border-t-2 border-slate-300">`;
       bodyHtml += `<td class="text-center font-bold px-3">总计</td>`;
 
@@ -2353,7 +2525,7 @@
     }
 
     /**
-     * 8.2 渲染表4：统计不同库存区间，不同店铺归类最新一周的销量
+     * 8.4 渲染表4：统计不同库存区间，不同店铺归类最新一周的销量
      */
     function renderMatrixTable4() {
       const thead = document.getElementById('matrixTable4Head');
@@ -2401,7 +2573,6 @@
         </tr>`;
       });
 
-      // 总计行
       bodyHtml += `<tr class="h-9 font-bold bg-slate-100 text-slate-900 border-t-2 border-slate-300">`;
       bodyHtml += `<td class="text-center font-bold px-3">总计</td>`;
       channels.forEach(ch => {
@@ -2422,15 +2593,15 @@
     }
 
     /**
-     * 8.3 渲染表4-库龄版：统计不同在仓库龄，不同店铺归类最新一周的销量
+     * 8.5 渲染表4附：统计不同在仓库龄，不同店铺归类最新一周的销量
      */
     function renderMatrixTable4Age() {
       const thead = document.getElementById('matrixTable4AgeHead');
       const tbody = document.getElementById('matrixTable4AgeBody');
       if (!thead || !tbody) return;
 
+      const ages = getDistinctAges(RAW_PRODUCTS);
       const channels = getFilteredDistinctChannels(filteredSKUs);
-      const distinctAges = getDistinctAges(RAW_PRODUCTS);
 
       let headHtml = `<tr class="h-8"><th class="w-32 px-3 text-center bg-slate-100 font-bold">在仓库龄</th>`;
       channels.forEach(ch => {
@@ -2444,13 +2615,13 @@
       let grandSales = 0;
 
       let bodyHtml = '';
-      distinctAges.forEach(age => {
+      ages.forEach(a => {
         bodyHtml += `<tr class="h-8 hover:bg-slate-50 transition-colors">`;
-        bodyHtml += `<td class="font-bold text-center bg-slate-50 text-slate-800 px-3">${age}</td>`;
+        bodyHtml += `<td class="font-bold text-center bg-slate-50 text-slate-800 px-3">${a}</td>`;
 
         let rowSales = 0;
         channels.forEach(ch => {
-          const items = filteredSKUs.filter(i => String(i.age || '180天') === age);
+          const items = filteredSKUs.filter(i => (i.age || '180天') === a);
           const chSales = items.reduce((sum, i) => sum + (i.channelSales7dMap?.[ch]?.qty || 0), 0);
 
           rowSales += chSales;
@@ -2471,7 +2642,6 @@
         </tr>`;
       });
 
-      // 总计行
       bodyHtml += `<tr class="h-9 font-bold bg-slate-100 text-slate-900 border-t-2 border-slate-300">`;
       bodyHtml += `<td class="text-center font-bold px-3">总计</td>`;
       channels.forEach(ch => {
@@ -2492,7 +2662,7 @@
     }
 
     /**
-     * 9. 渲染可视化对比微图：各库存区间的最新周销量和周库存和款数情况 (添加数据标签)
+     * 9. 渲染可视化对比微图：各库存区间
      */
     function renderBracketChart() {
       if (!chartBracketInst) {
@@ -2612,7 +2782,7 @@
     }
 
     /**
-     * 9.1 渲染可视化对比微图：各在仓库龄的最新周销量和周库存和款数情况
+     * 9.1 渲染可视化对比微图：各在仓库龄
      */
     function renderAgeChart() {
       const chartEl = document.getElementById('chartAgeComparison');
@@ -2621,15 +2791,15 @@
         chartAgeInst = echarts.init(chartEl);
       }
 
-      const distinctAges = getDistinctAges(RAW_PRODUCTS);
+      const ages = getDistinctAges(RAW_PRODUCTS);
       const stockData = [];
       const salesData = [];
       const countData = [];
 
       const latestWk = recent4WeekKeys[recent4WeekKeys.length - 1];
 
-      distinctAges.forEach(age => {
-        const items = filteredSKUs.filter(i => String(i.age || '180天') === age);
+      ages.forEach(a => {
+        const items = filteredSKUs.filter(i => (i.age || '180天') === a);
         const sumStock = items.reduce((s, i) => s + (i.weeklyMetrics[latestWk]?.stock || i.currentStock), 0);
         const sumSales = items.reduce((s, i) => s + (i.weeklyMetrics[latestWk]?.sales || i.salesLast7d), 0);
         const count = items.length;
@@ -2659,7 +2829,7 @@
         },
         xAxis: {
           type: 'category',
-          data: distinctAges,
+          data: ages,
           axisLabel: { fontSize: 10 }
         },
         yAxis: [
@@ -2702,7 +2872,7 @@
               show: true,
               position: 'top',
               fontSize: 10,
-              color: '#10b981',
+              color: '#059669',
               formatter: params => params.value > 0 ? params.value.toLocaleString() : ''
             },
             itemStyle: {
@@ -2719,11 +2889,11 @@
               show: true,
               position: 'top',
               fontSize: 10,
-              color: '#f59e0b',
+              color: '#0284c7',
               fontWeight: 'bold',
               formatter: params => params.value > 0 ? params.value : ''
             },
-            itemStyle: { color: '#f59e0b' },
+            itemStyle: { color: '#0284c7' },
             lineStyle: { width: 2.5 },
             symbolSize: 6
           }
@@ -2765,7 +2935,6 @@
       return arr.length > 0 ? arr : ['均码'];
     }
 
-    // 店铺的名称严格来源于销售数据表的「店铺归类」列
     function getFilteredDistinctChannels(skus) {
       const chSet = new Set();
       salesDB.forEach(s => {
@@ -2807,11 +2976,9 @@
       const total = list.length;
       document.getElementById('detailRecordCount').innerText = `共 ${total} 款`;
 
-      // 提取动态尺码与来自销售数据表的店铺归类
       const distinctSizes = getFilteredDistinctSizes(filteredSKUs);
       const distinctChannels = getFilteredDistinctChannels(filteredSKUs);
 
-      // 动态构建两层复合表头
       let headRow1 = `
         <tr class="h-8">
           <th rowspan="2" class="py-2.5 px-3 text-center w-28 bg-slate-100 border-r border-slate-200 font-bold">货号 (点击穿透)</th>
@@ -2876,9 +3043,8 @@
       let html = '';
       paged.forEach(item => {
         const diff7Text = item.diff7d > 0 ? `+${item.diff7d}` : `${item.diff7d}`;
-        const diff7Class = item.diff7d > 0 ? 'text-emerald-600 font-bold' : (item.diff7d < 0 ? 'text-rose-600 font-bold' : 'text-slate-400');
+        const diff7Cls = item.diff7d > 0 ? 'text-blue-600 font-bold' : (item.diff7d < 0 ? 'text-red-600 font-bold' : 'text-slate-400');
 
-        // 构建各尺码库存单元格 (0不显示)
         let sizeCellsHtml = '';
         distinctSizes.forEach(sz => {
           const q = item.sizeStockMap?.[sz] || 0;
@@ -2889,7 +3055,6 @@
           `;
         });
 
-        // 构建近7天店铺归类销量单元格 (格式: 销量/件单价，标注最大销量，0不显示)
         let channelCellsHtml = '';
         distinctChannels.forEach(ch => {
           const chData = item.channelSales7dMap?.[ch] || { qty: 0, price: 0 };
@@ -2923,8 +3088,6 @@
 
         html += `
           <tr class="hover:bg-slate-50 transition-colors">
-            
-            <!-- 1. 货号 (居中，点击穿透弹窗) -->
             <td class="py-2.5 px-3 text-center border-r border-slate-100">
               <button onclick="openSkuModal('${item.sku}')" class="font-bold text-sky-600 hover:text-sky-800 underline underline-offset-2 decoration-sky-300 font-mono text-center inline-flex items-center gap-1.5 transition" title="点击查看【${item.sku}】分仓库存分布">
                 <span>${item.sku}</span>
@@ -2932,7 +3095,6 @@
               </button>
             </td>
 
-            <!-- 2. 商品图片 (货号后，大尺寸悬停放大 + 点击弹出大图画廊) -->
             <td class="py-2 px-2 text-center w-20 relative border-r border-slate-100">
               <div class="inline-block relative group">
                 <img src="${item.img}" 
@@ -2943,25 +3105,18 @@
               </div>
             </td>
 
-            <!-- 3. 单位成本 (居中，保留1位小数) -->
             <td class="py-2.5 px-3 text-center font-mono text-slate-700 border-r border-slate-100">¥${Number(item.cost || 0).toFixed(1)}</td>
 
-            <!-- 4. 当前总库存 (最新盘点) -->
             <td class="py-2.5 px-3 text-center font-bold text-slate-900 font-mono border-r border-slate-100">${item.currentStock.toLocaleString()}</td>
             
-            <!-- 5. 不同尺码库存数量各列 (0不显示) -->
             ${sizeCellsHtml}
 
-            <!-- 6. 近7天销量 (严格与各渠道之和一致，0不显示) -->
             <td class="py-2.5 px-2 text-center font-bold text-sky-800 font-mono bg-sky-50/30">${item.salesLast7d > 0 ? item.salesLast7d : ''}</td>
 
-            <!-- 7. 7天环比(绝对量) (居中) -->
-            <td class="py-2.5 px-2 text-center font-mono bg-sky-50/30 border-r border-sky-100 ${diff7Class}">${diff7Text}</td>
+            <td class="py-2.5 px-2 text-center font-mono bg-sky-50/30 border-r border-sky-100 ${diff7Cls}">${diff7Text}</td>
 
-            <!-- 8. 不同店铺归类销量 (近7天，格式: 销量/单价，带最大标注) -->
             ${channelCellsHtml}
 
-            <!-- 9. 预估出清周数 (居中) -->
             <td class="py-2.5 px-3 text-center font-mono">
               <span class="${item.weeksToClear > 15 ? 'text-rose-600 font-bold' : 'text-slate-700'}">
                 ${item.weeksToClear > 90 ? '>90' : item.weeksToClear} 周
@@ -3000,6 +3155,642 @@
     }
 
     /**
+     * 10.1 货号尾货大图橱窗追踪模式
+     */
+    function handleCardPageSizeChange(val) {
+      cardPageSize = parseInt(val, 10) || 12;
+      currentCardPage = 1;
+      renderSkuCardGrid();
+    }
+
+    function handleCardSortChange() {
+      cardSortType = document.getElementById('cardSortSelect').value;
+      currentCardPage = 1;
+      renderSkuCardGrid();
+    }
+
+    function renderSkuCardGrid() {
+      const container = document.getElementById('skuCardGridContainer');
+      if (!container) return;
+
+      let list = [...filteredSKUs];
+      if (cardSortType === 'stock_desc') list.sort((a, b) => b.currentStock - a.currentStock);
+      if (cardSortType === 'stock_asc') list.sort((a, b) => a.currentStock - b.currentStock);
+      if (cardSortType === 'sales7_desc') list.sort((a, b) => b.salesLast7d - a.salesLast7d);
+      if (cardSortType === 'diff7_desc') list.sort((a, b) => b.diff7d - a.diff7d);
+      if (cardSortType === 'sales30_desc') list.sort((a, b) => b.salesLast30d - a.salesLast30d);
+      if (cardSortType === 'diff30_desc') list.sort((a, b) => b.diff30d - a.diff30d);
+      if (cardSortType === 'weeks_desc') list.sort((a, b) => b.weeksToClear - a.weeksToClear);
+
+      const total = list.length;
+      const countEl = document.getElementById('cardRecordCount');
+      if (countEl) countEl.innerText = `共 ${total} 款`;
+
+      const start = (currentCardPage - 1) * cardPageSize;
+      const paged = list.slice(start, start + cardPageSize);
+
+      if (paged.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full py-16 text-center text-slate-400">
+            <i class="fa-solid fa-folder-open text-3xl mb-2 block"></i>
+            未检索到符合条件的货号尾货数据
+          </div>
+        `;
+        const pagInfo = document.getElementById('cardPaginationInfo');
+        if (pagInfo) pagInfo.innerText = '显示 0 款';
+        const pagBtns = document.getElementById('cardPaginationBtns');
+        if (pagBtns) pagBtns.innerHTML = '';
+        return;
+      }
+
+      let html = '';
+      paged.forEach(item => {
+        const diff7Text = item.diff7d > 0 ? `+${item.diff7d}` : `${item.diff7d}`;
+        const diff7Cls = item.diff7d > 0 ? 'text-blue-600 font-bold' : (item.diff7d < 0 ? 'text-red-600 font-bold' : 'text-slate-400');
+
+        const diff30Text = item.diff30d > 0 ? `+${item.diff30d}` : `${item.diff30d}`;
+        const diff30Cls = item.diff30d > 0 ? 'text-blue-600 font-bold' : (item.diff30d < 0 ? 'text-red-600 font-bold' : 'text-slate-400');
+
+        // 库存深度区间徽标样式 (大库存/深度尾货采用粉红底色，贴合截图)
+        let bracketBadgeCls = 'bg-rose-100/90 text-rose-600 border border-rose-200';
+        if (item.bracketKey === '1-10') bracketBadgeCls = 'bg-emerald-100/90 text-emerald-700 border border-emerald-200';
+        else if (item.bracketKey === '11-50' || item.bracketKey === '51-100') bracketBadgeCls = 'bg-amber-100/90 text-amber-700 border border-amber-200';
+
+        html += `
+          <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs hover:shadow-md transition duration-200 flex flex-col group">
+            
+            <!-- 图片区域：左上角库存区间，右上角在仓库龄 -->
+            <div class="relative w-full aspect-square bg-slate-50/60 overflow-hidden cursor-zoom-in flex items-center justify-center p-2" onclick="openImagePreview('${item.img}', '${item.sku}')" title="点击放大图片">
+              <img src="${item.img}" alt="${item.sku}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300 rounded-xl" onerror="this.src='https://placehold.co/400x400/f1f5f9/94a3b8?text=SKU'">
+              
+              <!-- 左上角：库存区间 -->
+              <span class="absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${bracketBadgeCls} backdrop-blur-xs shadow-2xs">
+                ${item.bracketLabel}
+              </span>
+
+              <!-- 右上角：在仓库龄 (带沙漏标识) -->
+              <span class="absolute top-3 right-3 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-700/85 text-white backdrop-blur-xs border border-slate-600/70 shadow-2xs flex items-center gap-1 font-mono">
+                <span class="text-amber-400 text-[10px]">⏳</span>
+                <span>${item.age || '180天'}</span>
+              </span>
+            </div>
+
+            <!-- 卡片主体内容区 -->
+            <div class="p-3.5 flex-1 flex flex-col justify-between space-y-3 border-t border-slate-100">
+              
+              <!-- 货号与价格、商品名称 -->
+              <div>
+                <div class="flex items-center justify-between">
+                  <button type="button" onclick="openSkuSalesTrendModal('${item.sku}')" class="text-sm font-bold text-sky-600 hover:text-sky-800 font-mono tracking-tight underline underline-offset-2 decoration-sky-300 flex items-center gap-1 transition text-left" title="点击弹出【${item.sku}】按周动销折线面积图">
+                    <span>${item.sku}</span>
+                    <i class="fa-solid fa-chart-line text-[11px] text-sky-500"></i>
+                  </button>
+                  <span class="text-xs font-mono text-slate-500 font-medium">¥${Number(item.cost || 0).toFixed(1)}</span>
+                </div>
+                <div class="text-xs text-slate-600 truncate mt-1" title="${item.name}">${item.name || item.category}</div>
+              </div>
+
+              <!-- 十字格指标汇总矩阵 (完全对齐截图) -->
+              <div class="grid grid-cols-2 rounded-xl bg-slate-50/80 border border-slate-100 text-center font-mono overflow-hidden">
+                <div class="p-2 border-r border-b border-slate-200/60">
+                  <span class="text-[11px] text-slate-400 font-sans block mb-0.5">当前总库存</span>
+                  <span class="text-xs font-bold text-slate-900">${item.currentStock.toLocaleString()} <span class="font-normal text-slate-700">件</span></span>
+                </div>
+                <div class="p-2 border-b border-slate-200/60">
+                  <span class="text-[11px] text-slate-400 font-sans block mb-0.5">预估出清周数</span>
+                  <span class="text-xs font-bold ${item.weeksToClear > 15 ? 'text-rose-600' : 'text-emerald-600'}">${item.weeksToClear > 90 ? '>90' : item.weeksToClear} <span class="font-normal">周</span></span>
+                </div>
+                <div class="p-2 border-r border-slate-200/60">
+                  <span class="text-[11px] text-slate-400 font-sans block mb-0.5">近7天销量</span>
+                  <span class="text-xs font-bold text-slate-900">${item.salesLast7d} <span class="text-[11px] ${diff7Cls}">(${diff7Text})</span></span>
+                </div>
+                <div class="p-2">
+                  <span class="text-[11px] text-slate-400 font-sans block mb-0.5">近30天销量</span>
+                  <span class="text-xs font-bold text-slate-900">${item.salesLast30d} <span class="text-[11px] ${diff30Cls}">(${diff30Text})</span></span>
+                </div>
+              </div>
+
+              <!-- 底部操作按钮 -->
+              <button type="button" onclick="openSkuModal('${item.sku}')" class="w-full py-2 px-3 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium transition flex items-center justify-center gap-1.5 shadow-2xs">
+                <i class="fa-solid fa-boxes-stacked text-sky-500 text-xs"></i>
+                <span>分仓颜色尺码分布</span>
+              </button>
+
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+
+      const totalPages = Math.ceil(total / cardPageSize) || 1;
+      const pagInfo = document.getElementById('cardPaginationInfo');
+      if (pagInfo) pagInfo.innerText = `显示第 ${start + 1} 至 ${Math.min(start + cardPageSize, total)} 款，共 ${total} 款`;
+
+      const pagBtns = document.getElementById('cardPaginationBtns');
+      if (pagBtns) {
+        let btnsHtml = `
+          <button onclick="changeCardPage(${currentCardPage - 1})" ${currentCardPage === 1 ? 'disabled class="opacity-40"' : ''} class="px-2 py-0.5 border border-slate-300 rounded hover:bg-slate-100 text-xs">上一页</button>
+        `;
+        for (let p = 1; p <= totalPages; p++) {
+          if (p === 1 || p === totalPages || (p >= currentCardPage - 1 && p <= currentCardPage + 1)) {
+            btnsHtml += `
+              <button onclick="changeCardPage(${p})" class="px-2.5 py-0.5 border rounded text-xs ${p === currentCardPage ? 'bg-sky-600 text-white border-sky-600 font-bold' : 'border-slate-300 hover:bg-slate-100'}">${p}</button>
+            `;
+          }
+        }
+        btnsHtml += `
+          <button onclick="changeCardPage(${currentCardPage + 1})" ${currentCardPage === totalPages ? 'disabled class="opacity-40"' : ''} class="px-2 py-0.5 border border-slate-300 rounded hover:bg-slate-100 text-xs">下一页</button>
+        `;
+        pagBtns.innerHTML = btnsHtml;
+      }
+    }
+
+    function changeCardPage(page) {
+      const totalPages = Math.ceil(filteredSKUs.length / cardPageSize);
+      if (page < 1 || page > totalPages) return;
+      currentCardPage = page;
+      renderSkuCardGrid();
+    }
+
+    /**
+     * 10.2 单款按周统计销量折线面积图弹窗 (周期不局限于近4周，支持全量历史/近12周/近8周/近4周快捷切换)
+     */
+    let chartSkuTrendInst = null;
+    let currentTrendSku = null;
+    let selectedTrendChannel = 'ALL';
+    let trendCycleRange = 'ALL'; // 默认查看全部周期
+    let trendTableSortField = 'sales7';
+    let trendTableSortOrder = 'desc';
+
+    function setTrendCycleRange(range) {
+      trendCycleRange = range;
+      updateTrendCycleButtons();
+      const item = aggregatedSKUs.find(s => s.sku === currentTrendSku);
+      if (item) {
+        renderModalSkuTrendChart(item);
+      }
+    }
+
+    function getTrendWeeks() {
+      let weeks = [...allWeekKeys];
+      if (weeks.length === 0) weeks = [...recent4WeekKeys];
+      if (trendCycleRange === '4') {
+        return weeks.slice(-4);
+      } else if (trendCycleRange === '8') {
+        return weeks.slice(-8);
+      } else if (trendCycleRange === '12') {
+        return weeks.slice(-12);
+      }
+      return weeks; // 'ALL' 默认展示全部业务周
+    }
+
+    function updateTrendCycleButtons() {
+      const group = document.getElementById('trendCycleButtonGroup');
+      if (!group) return;
+
+      const totalWeeksCount = allWeekKeys.length || recent4WeekKeys.length;
+      const options = [
+        { key: 'ALL', label: `全部周期 (${totalWeeksCount}周)` }
+      ];
+
+      if (totalWeeksCount >= 12) {
+        options.push({ key: '12', label: '近12周' });
+      }
+      if (totalWeeksCount >= 8) {
+        options.push({ key: '8', label: '近8周' });
+      }
+      if (totalWeeksCount >= 4) {
+        options.push({ key: '4', label: '近4周' });
+      }
+
+      let html = '';
+      options.forEach(opt => {
+        const isActive = trendCycleRange === opt.key;
+        const btnCls = isActive 
+          ? 'bg-white text-sky-800 shadow-2xs font-bold' 
+          : 'text-slate-600 hover:text-slate-900';
+        html += `
+          <button type="button" onclick="setTrendCycleRange('${opt.key}')" class="px-2.5 py-0.5 rounded-md transition text-xs ${btnCls}">
+            ${opt.label}
+          </button>
+        `;
+      });
+      group.innerHTML = html;
+    }
+
+    function openSkuSalesTrendModal(sku) {
+      currentTrendSku = sku;
+      selectedTrendChannel = 'ALL';
+      trendCycleRange = 'ALL'; // 默认全量周期
+      trendTableSortField = 'sales7';
+      trendTableSortOrder = 'desc';
+
+      const item = aggregatedSKUs.find(s => s.sku === sku);
+      if (!item) return;
+
+      document.getElementById('modalTrendSkuCode').innerText = sku;
+      document.getElementById('modalTrendSkuImage').src = item.img || 'https://placehold.co/120x120/f1f5f9/94a3b8?text=SKU';
+      document.getElementById('modalTrendSkuMetaText').innerText = `${item.year || ''} · ${item.season || item.seasonGroup || ''} · ${item.category || ''} · 库龄: ${item.age || '180天'} · 单位成本: ¥${Number(item.cost || 0).toFixed(1)}`;
+
+      document.getElementById('trendKpiStock').innerText = `${item.currentStock.toLocaleString()} 件`;
+
+      const diff7Text = item.diff7d > 0 ? `+${item.diff7d}` : `${item.diff7d}`;
+      const diff7Cls = item.diff7d > 0 ? 'text-blue-600 font-bold' : (item.diff7d < 0 ? 'text-red-600 font-bold' : 'text-slate-400');
+      document.getElementById('trendKpiSales7').innerHTML = `<span class="text-slate-900">${item.salesLast7d.toLocaleString()}</span> <span class="text-xs ${diff7Cls}">(${diff7Text})</span>`;
+
+      const diff30Text = item.diff30d > 0 ? `+${item.diff30d}` : `${item.diff30d}`;
+      const diff30Cls = item.diff30d > 0 ? 'text-blue-600 font-bold' : (item.diff30d < 0 ? 'text-red-600 font-bold' : 'text-slate-400');
+      document.getElementById('trendKpiSales30').innerHTML = `<span class="text-slate-900">${item.salesLast30d.toLocaleString()}</span> <span class="text-xs ${diff30Cls}">(${diff30Text})</span>`;
+
+      document.getElementById('trendKpiWeeks').innerText = `${item.weeksToClear > 90 ? '>90' : item.weeksToClear} 周`;
+
+      document.getElementById('skuTrendModalBackdrop').classList.remove('hidden');
+
+      updateTrendCycleButtons();
+      renderModalSkuTrendContent(item);
+    }
+
+    function closeSkuTrendModal() {
+      document.getElementById('skuTrendModalBackdrop').classList.add('hidden');
+    }
+
+    function openSkuModalFromTrend() {
+      closeSkuTrendModal();
+      if (currentTrendSku) {
+        openSkuModal(currentTrendSku);
+      }
+    }
+
+    function openSkuTrendFromModal() {
+      closeSkuModal();
+      if (currentModalSku) {
+        openSkuSalesTrendModal(currentModalSku);
+      }
+    }
+
+    function selectTrendChannel(ch) {
+      if (selectedTrendChannel === ch && ch !== 'ALL') {
+        selectedTrendChannel = 'ALL';
+      } else {
+        selectedTrendChannel = ch;
+      }
+      const item = aggregatedSKUs.find(s => s.sku === currentTrendSku);
+      if (item) {
+        renderModalSkuTrendChart(item);
+        renderModalSkuTrendTable(item);
+      }
+    }
+
+    function toggleTrendTableSort(field) {
+      if (trendTableSortField === field) {
+        trendTableSortOrder = trendTableSortOrder === 'desc' ? 'asc' : 'desc';
+      } else {
+        trendTableSortField = field;
+        trendTableSortOrder = 'desc';
+      }
+      const item = aggregatedSKUs.find(s => s.sku === currentTrendSku);
+      if (item) {
+        renderModalSkuTrendTable(item);
+      }
+    }
+
+    function renderModalSkuTrendContent(item) {
+      renderModalSkuTrendChart(item);
+      renderModalSkuTrendTable(item);
+    }
+
+    function renderModalSkuTrendChart(item) {
+      const weeks = getTrendWeeks();
+      const weekLabels = weeks.map(wk => getWeekRangeLabel(wk));
+
+      const salesData = weeks.map(wk => {
+        if (selectedTrendChannel === 'ALL') {
+          return salesDB.filter(s => s.sku === item.sku && getISOWeekKey(formatToDateStr(s.date)) === wk)
+                        .reduce((sum, s) => sum + s.salesQty, 0);
+        } else {
+          return salesDB.filter(s => s.sku === item.sku && String(s.channel || s['店铺归类'] || '').trim() === selectedTrendChannel && getISOWeekKey(formatToDateStr(s.date)) === wk)
+                        .reduce((sum, s) => sum + s.salesQty, 0);
+        }
+      });
+
+      // 联动更新折线图标题与渠道标签
+      const titleEl = document.getElementById('modalTrendChartTitleText');
+      const resetBtn = document.getElementById('trendChannelFilterResetBtn');
+      if (titleEl) {
+        const channelName = selectedTrendChannel === 'ALL' ? '全渠道合计' : selectedTrendChannel;
+        const badgeCls = selectedTrendChannel === 'ALL' ? 'bg-sky-100 text-sky-800 border-sky-300' : 'bg-emerald-100 text-emerald-800 border-emerald-300';
+        titleEl.innerHTML = `
+          <span>按周统计销量走势 (折线面积图 · 带数据标签)</span>
+          <span class="ml-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border shadow-2xs ${badgeCls}">
+            <i class="fa-solid fa-store text-[10px]"></i>
+            <span>${channelName}</span>
+          </span>
+        `;
+      }
+      if (resetBtn) {
+        if (selectedTrendChannel === 'ALL') {
+          resetBtn.classList.add('hidden');
+        } else {
+          resetBtn.classList.remove('hidden');
+        }
+      }
+
+      const chartEl = document.getElementById('modalSkuTrendChart');
+      if (chartEl) {
+        if (!chartSkuTrendInst) {
+          chartSkuTrendInst = echarts.init(chartEl);
+        }
+
+        const channelLabel = selectedTrendChannel === 'ALL' ? '全渠道周销量' : `${selectedTrendChannel}周销量`;
+        const lineColor = selectedTrendChannel === 'ALL' ? '#0284c7' : '#059669';
+        const gradColorTop = selectedTrendChannel === 'ALL' ? 'rgba(2, 132, 199, 0.42)' : 'rgba(5, 150, 105, 0.42)';
+        const gradColorBottom = selectedTrendChannel === 'ALL' ? 'rgba(2, 132, 199, 0.03)' : 'rgba(5, 150, 105, 0.03)';
+
+        const option = {
+          tooltip: {
+            trigger: 'axis',
+            formatter: params => {
+              const p = params[0];
+              return `<div class="font-sans text-xs">
+                <div class="font-bold text-slate-800">${p.axisValue} (${weeks[p.dataIndex]})</div>
+                <div class="text-sky-600 mt-1">${channelLabel}: <strong>${p.value}</strong> 件</div>
+              </div>`;
+            }
+          },
+          grid: {
+            top: '18%',
+            left: '3%',
+            right: '4%',
+            bottom: weeks.length > 8 ? '14%' : '10%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            boundaryGap: false,
+            data: weekLabels,
+            axisLabel: {
+              fontSize: 10,
+              color: '#475569',
+              interval: 0,
+              rotate: weeks.length > 8 ? 25 : 0
+            }
+          },
+          yAxis: {
+            type: 'value',
+            name: '销量 (件)',
+            splitLine: { lineStyle: { color: '#f1f5f9' } },
+            axisLabel: { fontSize: 10, color: '#64748b' }
+          },
+          series: [
+            {
+              name: channelLabel,
+              type: 'line',
+              smooth: true,
+              data: salesData,
+              symbol: 'circle',
+              symbolSize: 8,
+              itemStyle: {
+                color: lineColor,
+                borderWidth: 2,
+                borderColor: '#ffffff'
+              },
+              lineStyle: {
+                width: 3,
+                color: lineColor
+              },
+              areaStyle: {
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                  { offset: 0, color: gradColorTop },
+                  { offset: 1, color: gradColorBottom }
+                ])
+              },
+              label: {
+                show: true,
+                position: 'top',
+                distance: 8,
+                fontSize: 11,
+                fontWeight: 'bold',
+                color: lineColor,
+                formatter: '{c} 件'
+              }
+            }
+          ]
+        };
+
+        // 当周数大于12周时，自动追加平滑滑动缩放轴 (dataZoom)
+        if (weeks.length > 12) {
+          option.dataZoom = [
+            {
+              type: 'inside',
+              start: 0,
+              end: 100
+            },
+            {
+              type: 'slider',
+              height: 16,
+              bottom: 2,
+              borderColor: '#e2e8f0',
+              handleSize: '80%'
+            }
+          ];
+          option.grid.bottom = '18%';
+        }
+
+        chartSkuTrendInst.setOption(option, true);
+        setTimeout(() => {
+          chartSkuTrendInst.resize();
+        }, 60);
+      }
+    }
+
+    function renderModalSkuTrendTable(item) {
+      const theadRow = document.getElementById('modalTrendTheadRow');
+      const tbody = document.getElementById('modalTrendTableBody');
+      if (!theadRow || !tbody) return;
+
+      const weeks = [...recent4WeekKeys];
+      const channels = getFilteredDistinctChannels(filteredSKUs);
+      const latestWk = weeks[weeks.length - 1];
+      const prevWk = weeks.length >= 2 ? weeks[weeks.length - 2] : null;
+
+      let channelDataList = [];
+      let totalQty7 = 0;
+      let totalRev7 = 0;
+      let totalDiff7 = 0;
+      let totalQty30 = 0;
+      let totalDiff30 = 0;
+
+      channels.forEach(ch => {
+        const chRecords = salesDB.filter(s => s.sku === item.sku && String(s.channel || s['店铺归类'] || '').trim() === ch);
+
+        const latestRecords = chRecords.filter(s => getISOWeekKey(formatToDateStr(s.date)) === latestWk);
+        const sales7 = latestRecords.reduce((sum, s) => sum + s.salesQty, 0);
+        let rev7 = latestRecords.reduce((sum, s) => sum + (s.salesRev !== undefined ? Number(s.salesRev) : 0), 0);
+        if (rev7 === 0 && sales7 > 0) {
+          rev7 = sales7 * (item.cost * 1.55);
+        }
+
+        const prev7 = prevWk ? chRecords.filter(s => getISOWeekKey(formatToDateStr(s.date)) === prevWk).reduce((sum, s) => sum + s.salesQty, 0) : 0;
+        const diff7 = sales7 - prev7;
+
+        // 计算近7天件单价与近7天倍率 (倍率 = 销额 / 销售成本，销售成本 = 成本 * 销量)
+        const price7 = sales7 > 0 ? (rev7 / sales7) : 0;
+        const salesCost7 = (Number(item.cost) || 0) * sales7;
+        const ratio7 = salesCost7 > 0 ? (rev7 / salesCost7) : (Number(item.cost) > 0 && price7 > 0 ? price7 / Number(item.cost) : 0);
+
+        const sales30 = chRecords.filter(s => weeks.includes(getISOWeekKey(formatToDateStr(s.date)))).reduce((sum, s) => sum + s.salesQty, 0);
+
+        let diff30 = 0;
+        if (weeks.length >= 4) {
+          const sumLater2w = chRecords.filter(s => [weeks[2], weeks[3]].includes(getISOWeekKey(formatToDateStr(s.date)))).reduce((sum, s) => sum + s.salesQty, 0);
+          const sumEarlier2w = chRecords.filter(s => [weeks[0], weeks[1]].includes(getISOWeekKey(formatToDateStr(s.date)))).reduce((sum, s) => sum + s.salesQty, 0);
+          diff30 = sumLater2w - sumEarlier2w;
+        } else {
+          diff30 = Math.round(diff7 * 3.2);
+        }
+
+        totalQty7 += sales7;
+        totalRev7 += rev7;
+        totalDiff7 += diff7;
+        totalQty30 += sales30;
+        totalDiff30 += diff30;
+
+        channelDataList.push({
+          channel: ch,
+          sales7,
+          diff7,
+          rev7,
+          price7,
+          ratio7,
+          sales30,
+          diff30
+        });
+      });
+
+      // 1. 过滤掉销量为0的渠道 (近7天与近30天销量皆为0的过滤)
+      channelDataList = channelDataList.filter(c => c.sales7 > 0 || c.sales30 > 0);
+
+      // 2. 自定义排序 (支持店铺、近7天销量、环比、件单价、倍率、近30天销量、环比)
+      channelDataList.sort((a, b) => {
+        let valA = a[trendTableSortField];
+        let valB = b[trendTableSortField];
+        if (typeof valA === 'string') {
+          return trendTableSortOrder === 'asc' ? valA.localeCompare(valB, 'zh-CN') : valB.localeCompare(valA, 'zh-CN');
+        }
+        return trendTableSortOrder === 'asc' ? valA - valB : valB - valA;
+      });
+
+      // 3. 动态表头 (带排序指示符，新增近7天件单价与近7天倍率)
+      const getSortIcon = (f) => {
+        if (trendTableSortField !== f) return '<i class="fa-solid fa-sort text-slate-300 ml-1"></i>';
+        return trendTableSortOrder === 'asc' 
+          ? '<i class="fa-solid fa-arrow-up text-sky-600 ml-1"></i>' 
+          : '<i class="fa-solid fa-arrow-down text-sky-600 ml-1"></i>';
+      };
+
+      theadRow.innerHTML = `
+        <th onclick="toggleTrendTableSort('channel')" class="px-4 py-2 text-center bg-slate-100/70 cursor-pointer hover:bg-slate-200 transition" title="点击按店铺名称排序">
+          <span>店铺归类</span>${getSortIcon('channel')}
+        </th>
+        <th onclick="toggleTrendTableSort('sales7')" class="px-3 py-2 text-center bg-sky-50/70 text-sky-950 font-bold cursor-pointer hover:bg-sky-100 transition" title="点击按近7天销量排序">
+          <span>近7天销量 (件)</span>${getSortIcon('sales7')}
+        </th>
+        <th onclick="toggleTrendTableSort('diff7')" class="px-3 py-2 text-center bg-sky-50/70 text-slate-700 cursor-pointer hover:bg-sky-100 transition" title="点击按7天环比排序">
+          <span>7天环比 (绝对增量)</span>${getSortIcon('diff7')}
+        </th>
+        <th onclick="toggleTrendTableSort('price7')" class="px-3 py-2 text-center bg-sky-50/70 text-sky-950 font-bold cursor-pointer hover:bg-sky-100 transition" title="点击按近7天件单价排序">
+          <span>近7天件单价</span>${getSortIcon('price7')}
+        </th>
+        <th onclick="toggleTrendTableSort('ratio7')" class="px-3 py-2 text-center bg-sky-50/70 text-sky-950 font-bold cursor-pointer hover:bg-sky-100 transition" title="点击按近7天倍率排序">
+          <span>近7天倍率</span>${getSortIcon('ratio7')}
+        </th>
+        <th onclick="toggleTrendTableSort('sales30')" class="px-3 py-2 text-center bg-indigo-50/60 text-indigo-950 font-bold cursor-pointer hover:bg-indigo-100 transition" title="点击按近30天销量排序">
+          <span>近30天销量 (件)</span>${getSortIcon('sales30')}
+        </th>
+        <th onclick="toggleTrendTableSort('diff30')" class="px-3 py-2 text-center bg-indigo-50/60 text-slate-700 cursor-pointer hover:bg-indigo-100 transition" title="点击按30天环比排序">
+          <span>30天环比 (绝对增量)</span>${getSortIcon('diff30')}
+        </th>
+      `;
+
+      // 4. 渲染数据行
+      let rowsHtml = '';
+      if (channelDataList.length === 0) {
+        rowsHtml = `<tr><td colspan="7" class="py-8 text-center text-slate-400">该货号在各店铺暂无有效动销记录 (销量为0已自动过滤)</td></tr>`;
+      } else {
+        channelDataList.forEach(c => {
+          const isSelected = selectedTrendChannel === c.channel;
+          const diff7Badge = c.diff7 > 0 
+            ? `<span class="text-blue-600 font-bold font-mono">+${c.diff7}</span>` 
+            : (c.diff7 < 0 ? `<span class="text-red-600 font-bold font-mono">${c.diff7}</span>` : `<span class="text-slate-400 font-mono">0</span>`);
+
+          const diff30Badge = c.diff30 > 0 
+            ? `<span class="text-blue-600 font-bold font-mono">+${c.diff30}</span>` 
+            : (c.diff30 < 0 ? `<span class="text-red-600 font-bold font-mono">${c.diff30}</span>` : `<span class="text-slate-400 font-mono">0</span>`);
+
+          const price7Text = c.sales7 > 0 ? Number(c.price7).toFixed(1) : '-';
+          const ratio7Text = c.sales7 > 0 && c.ratio7 > 0 ? Number(c.ratio7).toFixed(2) : '-';
+
+          const activeRowCls = isSelected 
+            ? 'bg-emerald-50/80 ring-2 ring-emerald-500 ring-inset font-bold' 
+            : 'hover:bg-slate-50';
+
+          rowsHtml += `
+            <tr onclick="selectTrendChannel('${c.channel}')" class="${activeRowCls} transition-colors cursor-pointer select-none" title="点击联动：折线图仅查看【${c.channel}】走势">
+              <td class="px-4 py-2.5 text-center font-bold text-slate-800">
+                <span class="inline-flex items-center gap-1.5">
+                  ${isSelected ? '<i class="fa-solid fa-circle-check text-emerald-600 text-xs"></i>' : '<i class="fa-regular fa-circle text-slate-300 text-xs"></i>'}
+                  <span>${c.channel}</span>
+                </span>
+              </td>
+              <td class="px-3 py-2.5 text-center font-bold text-sky-900 bg-sky-50/30 font-mono">${c.sales7}</td>
+              <td class="px-3 py-2.5 text-center bg-sky-50/30">${diff7Badge}</td>
+              <td class="px-3 py-2.5 text-center font-mono text-slate-700 bg-sky-50/30 font-medium">${price7Text}</td>
+              <td class="px-3 py-2.5 text-center font-mono text-slate-700 bg-sky-50/30 font-medium">${ratio7Text}</td>
+              <td class="px-3 py-2.5 text-center font-bold text-indigo-950 bg-indigo-50/20 font-mono">${c.sales30}</td>
+              <td class="px-3 py-2.5 text-center bg-indigo-50/20">${diff30Badge}</td>
+            </tr>
+          `;
+        });
+      }
+
+      // 全渠道合计行 (点击可重置折线图为全渠道合计)
+      const isTotalSelected = selectedTrendChannel === 'ALL';
+      const totDiff7Badge = totalDiff7 > 0 
+        ? `<span class="text-blue-600 font-bold font-mono">+${totalDiff7}</span>` 
+        : (totalDiff7 < 0 ? `<span class="text-red-600 font-bold font-mono">${totalDiff7}</span>` : `<span class="text-slate-400 font-mono">0</span>`);
+
+      const totDiff30Badge = totalDiff30 > 0 
+        ? `<span class="text-blue-600 font-bold font-mono">+${totalDiff30}</span>` 
+        : (totalDiff30 < 0 ? `<span class="text-red-600 font-bold font-mono">${totalDiff30}</span>` : `<span class="text-slate-400 font-mono">0</span>`);
+
+      const totPrice7 = totalQty7 > 0 ? (totalRev7 / totalQty7) : 0;
+      const totCost7 = (Number(item.cost) || 0) * totalQty7;
+      const totRatio7 = totCost7 > 0 ? (totalRev7 / totCost7) : 0;
+
+      const activeTotalCls = isTotalSelected ? 'bg-sky-100/90 ring-2 ring-sky-500 ring-inset' : 'hover:bg-slate-200/80';
+
+      rowsHtml += `
+        <tr onclick="selectTrendChannel('ALL')" class="h-9 font-bold bg-slate-100 text-slate-900 border-t-2 border-slate-300 cursor-pointer select-none ${activeTotalCls} transition-colors" title="点击联动：折线图恢复查看全渠道合计走势">
+          <td class="px-4 py-2 text-center font-bold bg-slate-200/70">
+            <span class="inline-flex items-center gap-1.5">
+              ${isTotalSelected ? '<i class="fa-solid fa-circle-check text-sky-600 text-xs"></i>' : '<i class="fa-regular fa-circle text-slate-400 text-xs"></i>'}
+              <span>全渠道合计</span>
+            </span>
+          </td>
+          <td class="px-3 py-2 text-center font-bold text-sky-900 bg-sky-100/60 font-mono">${totalQty7}</td>
+          <td class="px-3 py-2 text-center bg-sky-100/60">${totDiff7Badge}</td>
+          <td class="px-3 py-2 text-center font-bold text-slate-900 bg-sky-100/60 font-mono">${totPrice7 > 0 ? totPrice7.toFixed(1) : '-'}</td>
+          <td class="px-3 py-2 text-center font-bold text-slate-900 bg-sky-100/60 font-mono">${totRatio7 > 0 ? totRatio7.toFixed(2) : '-'}</td>
+          <td class="px-3 py-2 text-center font-bold text-indigo-900 bg-indigo-100/50 font-mono">${totalQty30}</td>
+          <td class="px-3 py-2 text-center bg-indigo-100/50">${totDiff30Badge}</td>
+        </tr>
+      `;
+
+      tbody.innerHTML = rowsHtml;
+    }
+
+    /**
      * 10.1 商品大图画廊弹窗控制 (支持点击放大预览与ESC键关闭)
      */
     function openImagePreview(imgUrl, sku) {
@@ -3029,12 +3820,16 @@
       if (modal) modal.classList.add('hidden');
     }
 
-    // 监听 ESC 键关闭图片放大弹窗
+    // 监听 ESC 键关闭图片放大弹窗与趋势图弹窗
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {
         const imgModal = document.getElementById('imagePreviewModal');
         if (imgModal && !imgModal.classList.contains('hidden')) {
           imgModal.classList.add('hidden');
+        }
+        const trendModal = document.getElementById('skuTrendModalBackdrop');
+        if (trendModal && !trendModal.classList.contains('hidden')) {
+          trendModal.classList.add('hidden');
         }
       }
     });
@@ -3899,7 +4694,10 @@
         inventoryDB = benchmarkInv;
 
         const benchmarkSales = [];
-        const dates = ['2026-10-12', '2026-10-19', '2026-10-26', '2026-11-02'];
+        const dates = [
+          '2026-09-14', '2026-09-21', '2026-09-28', '2026-10-05',
+          '2026-10-12', '2026-10-19', '2026-10-26', '2026-11-02'
+        ];
         for (let i = 0; i < benchmarkProducts.length; i++) {
           const prod = benchmarkProducts[i];
           for (let wkIdx = 0; wkIdx < dates.length; wkIdx++) {
@@ -3946,6 +4744,7 @@
     window.addEventListener('resize', () => {
       chartBracketInst && chartBracketInst.resize();
       chartAgeInst && chartAgeInst.resize();
+      chartSkuTrendInst && chartSkuTrendInst.resize();
     });
 
     // 页面初始化入口：校验登录状态并初始化数据

@@ -564,19 +564,19 @@
       </div>
     </section>
 
-    <!-- 5.0 另起一行：统计不同在仓库龄的库存数量，销量，款数的周变化 -->
+    <!-- 5.0 另起一行：统计不同在仓库龄的库存数量，销量的周变化 (已移除款数与款数环比) -->
     <section class="bg-white border border-slate-200 rounded-lg shadow-2xs p-3.5">
       <div class="flex items-center justify-between mb-2 pb-2 border-b border-slate-200">
         <div class="flex items-center gap-2">
           <span class="w-2 h-4 bg-teal-600 rounded-xs"></span>
           <h2 class="text-xs font-bold text-slate-900 tracking-tight">
-            统计不同在仓库龄的库存数量，销量，款数的周变化
+            统计不同在仓库龄的库存数量，销量的周变化
           </h2>
         </div>
         <div class="flex items-center gap-3 text-[11px]">
           <span class="text-slate-500 font-medium" id="table2AgeCycleDesc"><i class="fa-regular fa-calendar-days text-teal-600 mr-1"></i>统计周期: 最近4周滚动追踪</span>
           <span class="px-2 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200 font-mono font-medium">
-            数值严格居中对齐 · 单位：件/款
+            数值严格居中对齐 · 单位：件
           </span>
         </div>
       </div>
@@ -585,7 +585,7 @@
       <div class="overflow-x-auto">
         <table class="table-matrix w-full text-xs border-collapse font-sans" id="tableMatrix2Age">
           <thead id="matrixTable2AgeHead">
-            <!-- 动态生成复合双层表头：包含最近4周在仓库龄的库存、销量、款数、款数环比 -->
+            <!-- 动态生成复合双层表头：包含最近4周在仓库龄的库存、销量 -->
           </thead>
           <tbody id="matrixTable2AgeBody" class="font-mono text-slate-700">
             <!-- 动态生成各在仓库龄行 + 1个总计行 -->
@@ -2250,7 +2250,7 @@
     }
 
     /**
-     * 8.2 渲染表2附：各在仓库龄周变化
+     * 8.2 渲染表2附：各在仓库龄周变化 (已移除款数与款数环比，仅保留库存与销量)
      */
     function renderMatrixTable2Age() {
       const thead = document.getElementById('matrixTable2AgeHead');
@@ -2266,15 +2266,13 @@
         const isLatest = (idx === recent4WeekKeys.length - 1);
         const dateRangeStr = getWeekRangeLabel(wk);
         const thClass = isLatest ? 'bg-teal-50 text-teal-950 border-l-2 border-l-teal-300' : 'bg-slate-50 border-l-2 border-l-slate-300';
-        headRow1 += `<th colspan="4" class="px-2 text-center font-bold ${thClass}">${dateRangeStr} ${isLatest ? '(最新)' : ''}</th>`;
+        headRow1 += `<th colspan="2" class="px-2 text-center font-bold ${thClass}">${dateRangeStr} ${isLatest ? '(最新)' : ''}</th>`;
         
         const subClass = isLatest ? 'bg-teal-50/50 text-teal-900' : '';
         const borderL = 'border-l-2 ' + (isLatest ? 'border-l-teal-300' : 'border-l-slate-300');
         headRow2 += `
           <th class="px-2 text-center ${borderL} ${subClass}">库存</th>
           <th class="px-2 text-center ${subClass}">销量</th>
-          <th class="px-2 text-center ${subClass}">款数</th>
-          <th class="px-2 text-center ${subClass}">款数环比</th>
         `;
       });
 
@@ -2290,13 +2288,13 @@
       ages.forEach(a => {
         stats[a] = { label: a, weeks: {} };
         recent4WeekKeys.forEach(wk => {
-          stats[a].weeks[wk] = { stock: 0, sales: 0, count: 0 };
+          stats[a].weeks[wk] = { stock: 0, sales: 0 };
         });
       });
 
       const totalWeeks = {};
       recent4WeekKeys.forEach(wk => {
-        totalWeeks[wk] = { stock: 0, sales: 0, count: 0 };
+        totalWeeks[wk] = { stock: 0, sales: 0 };
       });
 
       filteredSKUs.forEach(item => {
@@ -2306,13 +2304,9 @@
           if (stats[a]) {
             stats[a].weeks[wk].stock += wData.stock;
             stats[a].weeks[wk].sales += wData.sales;
-            stats[a].weeks[wk].count += (wData.stock > 0 ? 1 : 0);
           }
-          if (wData.stock > 0) {
-            totalWeeks[wk].stock += wData.stock;
-            totalWeeks[wk].sales += wData.sales;
-            totalWeeks[wk].count += 1;
-          }
+          totalWeeks[wk].stock += wData.stock;
+          totalWeeks[wk].sales += wData.sales;
         });
       });
 
@@ -2330,29 +2324,9 @@
           const borderL = 'border-l-2 ' + (isLatest ? 'border-l-teal-300' : 'border-l-slate-300');
           const cellBg = isLatest ? 'bg-teal-50/40 font-bold text-slate-900' : '';
 
-          let diffText = '-';
-          let diffCls = 'text-slate-400';
-          if (idx > 0) {
-            const prevWk = recent4WeekKeys[idx - 1];
-            const prevStat = row.weeks[prevWk];
-            const d = wStat.count - prevStat.count;
-            if (d > 0) {
-              diffText = `+${d}`;
-              diffCls = 'text-amber-700 font-semibold';
-            } else if (d < 0) {
-              diffText = `${d}`;
-              diffCls = 'text-emerald-600 font-semibold';
-            } else {
-              diffText = '0';
-              diffCls = 'text-slate-400';
-            }
-          }
-
           bodyHtml += `
             <td class="text-center px-2 ${borderL} ${cellBg} font-mono">${wStat.stock.toLocaleString()}</td>
             <td class="text-center px-2 ${cellBg} font-mono">${wStat.sales.toLocaleString()}</td>
-            <td class="text-center px-2 ${cellBg} font-mono text-slate-700 font-medium">${wStat.count}</td>
-            <td class="text-center px-2 ${cellBg} font-mono text-xs ${diffCls}">${diffText}</td>
           `;
         });
 
@@ -2382,29 +2356,9 @@
         const borderL = 'border-l-2 ' + (isLatest ? 'border-l-teal-400 bg-teal-100/60' : 'border-l-slate-300');
         const textCls = isLatest ? 'text-teal-900' : '';
 
-        let totDiffText = '-';
-        let totDiffCls = 'text-slate-500';
-        if (idx > 0) {
-          const prevWk = recent4WeekKeys[idx - 1];
-          const prevTotal = totalWeeks[prevWk];
-          const d = wTotal.count - prevTotal.count;
-          if (d > 0) {
-            totDiffText = `+${d}`;
-            totDiffCls = 'text-amber-800 font-bold';
-          } else if (d < 0) {
-            totDiffText = `${d}`;
-            totDiffCls = 'text-emerald-700 font-bold';
-          } else {
-            totDiffText = '0';
-            totDiffCls = 'text-slate-500';
-          }
-        }
-
         bodyHtml += `
           <td class="text-center px-2 ${borderL} font-mono">${wTotal.stock.toLocaleString()}</td>
           <td class="text-center px-2 ${isLatest ? 'bg-teal-100/60' : ''} font-mono ${textCls}">${wTotal.sales.toLocaleString()}</td>
-          <td class="text-center px-2 ${isLatest ? 'bg-teal-100/60' : ''} font-mono text-slate-800 font-bold">${wTotal.count}</td>
-          <td class="text-center px-2 ${isLatest ? 'bg-teal-100/60' : ''} font-mono text-xs ${totDiffCls}">${totDiffText}</td>
         `;
       });
 
@@ -4187,12 +4141,12 @@
           row.alignment = { vertical: 'middle', horizontal: 'center' };
         });
 
-        // 2.0 表2附：各在仓库龄周变化
+        // 2.0 表2附：各在仓库龄周变化 (同步移除款数与款数环比)
         const ws2Age = workbook.addWorksheet('表2附_库龄周变化');
         const t2AgeHeaders = ['在仓库龄'];
         recent4WeekKeys.forEach(wk => {
           const rLabel = getWeekRangeLabel(wk);
-          t2AgeHeaders.push(`${rLabel}库存`, `${rLabel}销量`, `${rLabel}款数`, `${rLabel}款数环比`);
+          t2AgeHeaders.push(`${rLabel}库存`, `${rLabel}销量`);
         });
         t2AgeHeaders.push('消化率(最新周)', '预估出清周数');
         ws2Age.addRow(t2AgeHeaders);
@@ -4200,34 +4154,18 @@
         const distinctAgesForExport = getDistinctAges(RAW_PRODUCTS);
         distinctAgesForExport.forEach(age => {
           const rowVals = [age];
-          recent4WeekKeys.forEach((wk, idx) => {
-            let sumStock = 0, sumSales = 0, count = 0;
+          recent4WeekKeys.forEach(wk => {
+            let sumStock = 0, sumSales = 0;
             filteredSKUs.forEach(i => {
               if (String(i.age || '180天') === age) {
                 const wData = i.weeklyMetrics[wk] || { stock: i.currentStock, sales: 0 };
                 sumStock += wData.stock;
                 sumSales += wData.sales;
-                if (wData.stock > 0) count++;
               }
             });
-
-            let diffStr = '-';
-            if (idx > 0) {
-              const prevWk = recent4WeekKeys[idx - 1];
-              let prevCount = 0;
-              filteredSKUs.forEach(i => {
-                if (String(i.age || '180天') === age) {
-                  const prevWData = i.weeklyMetrics[prevWk] || { stock: i.currentStock, sales: 0 };
-                  if (prevWData.stock > 0) prevCount++;
-                }
-              });
-              const d = count - prevCount;
-              diffStr = d > 0 ? `+${d}` : `${d}`;
-            }
-
-            rowVals.push(sumStock, sumSales, count, diffStr);
+            rowVals.push(sumStock, sumSales);
           });
-          const latestStockIdx = 1 + (recent4WeekKeys.length - 1) * 4;
+          const latestStockIdx = 1 + (recent4WeekKeys.length - 1) * 2;
           const latestStock = rowVals[latestStockIdx] || 0;
           const latestSales = rowVals[latestStockIdx + 1] || 0;
           rowVals.push(latestStock > 0 ? ((latestSales / latestStock) * 100).toFixed(1) + '%' : '0.0%');

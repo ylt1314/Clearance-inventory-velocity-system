@@ -794,6 +794,8 @@
             <select id="cardSortSelect" onchange="handleCardSortChange()" class="bg-white border border-slate-300 rounded px-2 py-1 text-slate-700 text-xs">
               <option value="stock_desc">当前总库存 (从高到低) ↓</option>
               <option value="stock_asc">当前总库存 (从低到高) ↑</option>
+              <option value="sell_through_desc">售罄率 (从高到低) ↓</option>
+              <option value="sell_through_asc">售罄率 (从低到高) ↑</option>
               <option value="sales7_desc">近7天销量 (从高到低) ↓</option>
               <option value="diff7_desc">7天环比增量 (从高到低) ↓</option>
               <option value="sales30_desc">近30天销量 (从高到低) ↓</option>
@@ -1635,6 +1637,13 @@
       const latestWkKey = recent4WeekKeys[recent4WeekKeys.length - 1];
       const prevWkKey = recent4WeekKeys.length >= 2 ? recent4WeekKeys[recent4WeekKeys.length - 2] : null;
 
+      // 预先建立累计销售索引 (O(1) 极速查询，计算售罄率)
+      const skuCumSalesMap = new Map();
+      for (let i = 0; i < salesDB.length; i++) {
+        const s = salesDB[i];
+        skuCumSalesMap.set(s.sku, (skuCumSalesMap.get(s.sku) || 0) + (Number(s.salesQty) || 0));
+      }
+
       aggregatedSKUs = RAW_PRODUCTS.map(prod => {
         const latestSkuInv = latestInvMap.get(prod.sku) || [];
         let currentStock = 0;
@@ -1643,6 +1652,12 @@
           currentStock += latestSkuInv[i].stockQty;
           sizeStockMap[latestSkuInv[i].size] = (sizeStockMap[latestSkuInv[i].size] || 0) + latestSkuInv[i].stockQty;
         }
+
+        // 计算该款全周期累计销量与实时售罄率：售罄率 = 累计销量 / (当前总库存 + 累计销量)
+        const cumSales = skuCumSalesMap.get(prod.sku) || 0;
+        const sellThroughTotal = currentStock + cumSales;
+        const sellThroughRate = sellThroughTotal > 0 ? (cumSales / sellThroughTotal) : 0;
+        const sellThroughPercent = (sellThroughRate * 100).toFixed(1);
 
         const bracketKey = getBracketKey(currentStock);
         const bracketObj = BRACKETS.find(b => b.key === bracketKey);
@@ -1705,6 +1720,9 @@
         return {
           ...prod,
           currentStock,
+          cumSales,
+          sellThroughRate,
+          sellThroughPercent,
           bracketKey,
           bracketLabel: bracketObj ? bracketObj.label : '无库存',
           skuInv: latestSkuInv,
@@ -3130,6 +3148,8 @@
       let list = [...filteredSKUs];
       if (cardSortType === 'stock_desc') list.sort((a, b) => b.currentStock - a.currentStock);
       if (cardSortType === 'stock_asc') list.sort((a, b) => a.currentStock - b.currentStock);
+      if (cardSortType === 'sell_through_desc') list.sort((a, b) => b.sellThroughRate - a.sellThroughRate);
+      if (cardSortType === 'sell_through_asc') list.sort((a, b) => a.sellThroughRate - b.sellThroughRate);
       if (cardSortType === 'sales7_desc') list.sort((a, b) => b.salesLast7d - a.salesLast7d);
       if (cardSortType === 'diff7_desc') list.sort((a, b) => b.diff7d - a.diff7d);
       if (cardSortType === 'sales30_desc') list.sort((a, b) => b.salesLast30d - a.salesLast30d);
@@ -3192,13 +3212,17 @@
             <!-- 卡片主体内容区 -->
             <div class="p-3.5 flex-1 flex flex-col justify-between space-y-3 border-t border-slate-100">
               
-              <!-- 货号与商品名称 (已移除单位成本展示) -->
+              <!-- 货号与售罄率 (字体加粗加大) -->
               <div>
                 <div class="flex items-center justify-between">
                   <button type="button" onclick="openSkuSalesTrendModal('${item.sku}')" class="text-sm font-bold text-sky-600 hover:text-sky-800 font-mono tracking-tight underline underline-offset-2 decoration-sky-300 flex items-center gap-1 transition text-left" title="点击弹出【${item.sku}】按周动销折线面积图">
                     <span>${item.sku}</span>
                     <i class="fa-solid fa-chart-line text-[11px] text-sky-500"></i>
                   </button>
+                  <div class="flex items-baseline gap-1" title="售罄率 = 累计销量(${item.cumSales || 0}件) / [当前总库存(${item.currentStock}件) + 累计销量]">
+                    <span class="text-[10px] text-slate-400 font-sans">售罄率</span>
+                    <span class="text-sm sm:text-base font-bold font-mono text-emerald-600">${item.sellThroughPercent}%</span>
+                  </div>
                 </div>
                 <div class="text-xs text-slate-600 truncate mt-1" title="${item.name}">${item.name || item.category}</div>
               </div>

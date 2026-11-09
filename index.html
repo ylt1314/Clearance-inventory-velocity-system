@@ -3192,14 +3192,13 @@
             <!-- 卡片主体内容区 -->
             <div class="p-3.5 flex-1 flex flex-col justify-between space-y-3 border-t border-slate-100">
               
-              <!-- 货号与价格、商品名称 -->
+              <!-- 货号与商品名称 (已移除单位成本展示) -->
               <div>
                 <div class="flex items-center justify-between">
                   <button type="button" onclick="openSkuSalesTrendModal('${item.sku}')" class="text-sm font-bold text-sky-600 hover:text-sky-800 font-mono tracking-tight underline underline-offset-2 decoration-sky-300 flex items-center gap-1 transition text-left" title="点击弹出【${item.sku}】按周动销折线面积图">
                     <span>${item.sku}</span>
                     <i class="fa-solid fa-chart-line text-[11px] text-sky-500"></i>
                   </button>
-                  <span class="text-xs font-mono text-slate-500 font-medium">¥${Number(item.cost || 0).toFixed(1)}</span>
                 </div>
                 <div class="text-xs text-slate-600 truncate mt-1" title="${item.name}">${item.name || item.category}</div>
               </div>
